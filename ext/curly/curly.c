@@ -5,13 +5,25 @@
 /* internal curl callback functions */
 static size_t header_callback(void* buffer, size_t size, size_t count, void* self)
 {
-  rb_funcall((VALUE)self, rb_intern("add_header"), 1, rb_str_new2(buffer));
+  VALUE hash = rb_iv_get((VALUE)self, "@headers");
+  VALUE str  = rb_str_new2(buffer);
+  VALUE arr;
+
+  rb_funcall(str, rb_intern("chomp!"), 0);
+  arr = rb_funcall(str, rb_intern("split"), 2, rb_str_new2(": "), INT2NUM(2));
+
+  if (rb_funcall(arr, rb_intern("length"), 0) == INT2NUM(2)) {
+    rb_hash_aset(hash, rb_ary_entry(arr, 0), rb_ary_entry(arr, 1));
+  }
+
   return size * count;
 }
 
 static size_t data_callback(void* buffer, size_t size, size_t count, void* self)
 {
-  rb_funcall((VALUE)self, rb_intern("add_body"), 1, rb_str_new2(buffer));
+  VALUE body = rb_iv_get((VALUE)self, "@body");
+  rb_funcall(body, rb_intern("<<"), 1, rb_str_new2(buffer));
+
   return size * count;
 }
 
@@ -44,9 +56,11 @@ static VALUE request_perform(VALUE self, VALUE url, VALUE opts)
   rc = curl_easy_perform(c);
   rb_iv_set(resp, "@curl_code", INT2NUM(rc));
 
-  if (!rc) {
+  if (rc == CURLE_OK) {
     curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &code);
     rb_iv_set(resp, "@code", INT2NUM(code));
+  } else {
+    rb_iv_set(resp, "@curl_error", rb_str_new2(curl_easy_strerror(rc)));
   }
 
   return resp;
