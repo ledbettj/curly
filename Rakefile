@@ -1,6 +1,8 @@
 #!/usr/bin/env rake
 require "bundler/gem_tasks"
+require "rake/extensiontask"
 
-task :native do
-  `cd ./ext/curly && ruby ./extconf.rb && make && cp *.bundle *.so *.dll ../../lib/curly/`
+
+Rake::ExtensionTask.new("curly") do |ext|
+  ext.lib_dir = 'lib/curly'
 end
