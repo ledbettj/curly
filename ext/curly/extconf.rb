@@ -7,5 +7,4 @@ find_library('curl', 'curl_easy_init',
   '/usr/lib'
 )
 
-dir_config('curly')
 create_makefile('curly')
