@@ -8,7 +8,10 @@ static VALUE request_post(int argc, VALUE* argv, VALUE self);
 
 static VALUE request_alloc(VALUE self);
 static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts);
+
 static struct curl_slist* request_setheaders(VALUE self, CURL* c, VALUE opts);
+static int request_add_header(VALUE key, VALUE val, VALUE in);
+
 static size_t header_callback(void* buffer, size_t size, size_t count, void* self);
 static size_t data_callback  (void* buffer, size_t size, size_t count, void* self);
 
@@ -17,9 +20,8 @@ void Init_curly_request(void)
   VALUE curly   = rb_const_get(rb_cObject, rb_intern("Curly"));
   VALUE request = rb_define_class_under(curly, "Request", rb_cObject);
 
-  rb_define_singleton_method(request, "get",  request_get, -1);
-  rb_define_singleton_method(request, "post", request_get, -1);
-
+  rb_define_singleton_method(request, "get",  request_get,  -1);
+  rb_define_singleton_method(request, "post", request_post, -1);
 }
 
 static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
@@ -77,11 +79,16 @@ static VALUE request_get(int argc, VALUE* argv, VALUE self)
 static VALUE request_post(int argc, VALUE* argv, VALUE self)
 {
   CURL* c = curl_easy_init();
-  VALUE url, opts = Qnil, rc;
+  VALUE url, opts = Qnil, rc, body = Qnil;
 
   rb_scan_args(argc, argv, "11", &url, &opts);
 
   curl_easy_setopt(c, CURLOPT_HTTPPOST, NULL);
+
+  if (opts != Qnil &&
+      (body = rb_hash_aref(opts, ID2SYM(rb_intern("body")))) != Qnil) {
+    curl_easy_setopt(c, CURLOPT_POSTFIELDS, RSTRING_PTR(StringValue(body)));
+  }
 
   rc = request_perform(self, c, url, opts);
 
@@ -89,7 +96,6 @@ static VALUE request_post(int argc, VALUE* argv, VALUE self)
 
   return rc;
 }
-
 
 static int request_add_header(VALUE key, VALUE val, VALUE in)
 {

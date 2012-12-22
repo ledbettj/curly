@@ -34,4 +34,10 @@ class SpecServer < Sinatra::Base
 
     JSON.dump(r)
   end
+
+  post '/post-test' do
+    json = JSON.parse(request.body.read)
+
+    JSON.dump(json)
+  end
 end

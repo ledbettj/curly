@@ -39,7 +39,7 @@ describe "Curly" do
   end
 
   it "handles setting headers" do
-    resp = Curly::Request.get("#{TEST_URL}/headers-test?",
+    resp = Curly::Request.get("#{TEST_URL}/headers-test",
       :headers => {
         'X-Example-Header' => 'five'
       }
@@ -47,6 +47,23 @@ describe "Curly" do
 
     r = JSON.parse(resp.body)
     r['HTTP_X_EXAMPLE_HEADER'].should eq('five')
+  end
+
+  it "handles posting data" do
+    body = {
+      'hello' => 'world',
+      'hi' => 3
+    }
+
+    resp = Curly::Request.post("#{TEST_URL}/post-test",
+      :headers => {
+        'Content-Type' => 'application/json'
+      },
+      :body => JSON.dump(body)
+    )
+
+    r = JSON.parse(resp.body)
+    r.should eq(body)
   end
 
 end
