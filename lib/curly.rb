@@ -1,4 +1,4 @@
 require "curly/version"
-require "curly/response"
 require "curly/curly"
-require "curly/client"
+require "curly/request"
+require "curly/response"

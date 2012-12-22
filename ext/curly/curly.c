@@ -65,7 +65,7 @@ static VALUE client_get(VALUE self, VALUE url)
 void Init_curly(void)
 {
   VALUE mod   = rb_define_module("Curly");
-  VALUE klass = rb_define_class_under(mod, "Client", rb_cObject);
+  VALUE klass = rb_define_class_under(mod, "Request", rb_cObject);
 
   rb_define_alloc_func(klass, curly_alloc);
   rb_define_method(klass, "get", client_get, 1);
