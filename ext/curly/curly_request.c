@@ -7,7 +7,7 @@ static VALUE request_get (int argc, VALUE* argv, VALUE self);
 static VALUE request_post(int argc, VALUE* argv, VALUE self);
 
 static VALUE request_alloc(VALUE self);
-static VALUE request_perform(VALUE self, VALUE url, VALUE opts);
+static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts);
 
 static size_t header_callback(void* buffer, size_t size, size_t count, void* self);
 static size_t data_callback  (void* buffer, size_t size, size_t count, void* self);
@@ -17,20 +17,19 @@ void Init_curly_request(void)
   VALUE curly   = rb_const_get(rb_cObject, rb_intern("Curly"));
   VALUE request = rb_define_class_under(curly, "Request", rb_cObject);
 
-  rb_define_alloc_func(request, request_alloc);
-  rb_define_method(request, "get",  request_get, -1);
-  rb_define_method(request, "post", request_get, -1);
+  rb_define_singleton_method(request, "get",  request_get, -1);
+  rb_define_singleton_method(request, "post", request_get, -1);
 
 }
 
-static VALUE request_perform(VALUE self, VALUE url, VALUE opts)
+static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
 {
-  CURL* c;
   int   rc;
   long  code;
   VALUE resp = response_new();
 
-  Data_Get_Struct(self, CURL, c);
+  curl_easy_setopt(c, CURLOPT_HEADERFUNCTION, header_callback);
+  curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, data_callback);
 
   curl_easy_setopt(c, CURLOPT_URL, RSTRING_PTR(StringValue(url)));
 
@@ -43,7 +42,7 @@ static VALUE request_perform(VALUE self, VALUE url, VALUE opts)
 
   if (rc == CURLE_OK) {
     curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &code);
-    rb_iv_set(resp, "@code", INT2NUM(code));
+    rb_iv_set(resp, "@status", INT2NUM(code));
   } else {
     rb_iv_set(resp, "@curl_error", rb_str_new2(curl_easy_strerror(rc)));
   }
@@ -51,40 +50,37 @@ static VALUE request_perform(VALUE self, VALUE url, VALUE opts)
   return resp;
 }
 
-static VALUE request_alloc(VALUE self)
-{
-  CURL* c = curl_easy_init();
-  curl_easy_setopt(c, CURLOPT_HEADERFUNCTION, header_callback);
-  curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, data_callback);
-
-  return Data_Wrap_Struct(self, NULL, curl_easy_init, c);
-}
-
 /* externally visable functions */
 static VALUE request_get(int argc, VALUE* argv, VALUE self)
 {
-  CURL* c;
-  VALUE url, opts = Qnil;
+  CURL* c = curl_easy_init();
+  VALUE url, opts = Qnil, rc;
 
   rb_scan_args(argc, argv, "11", &url, &opts);
 
-  Data_Get_Struct(self, CURL, c);
   curl_easy_setopt(c, CURLOPT_HTTPGET, 1L);
 
-  return request_perform(self, url, opts);
+  rc = request_perform(self, c, url, opts);
+
+  curl_easy_cleanup(c);
+
+  return rc;
 }
 
 static VALUE request_post(int argc, VALUE* argv, VALUE self)
 {
-  CURL* c;
-  VALUE url, opts = Qnil;
+  CURL* c = curl_easy_init();
+  VALUE url, opts = Qnil, rc;
 
   rb_scan_args(argc, argv, "11", &url, &opts);
 
-  Data_Get_Struct(self, CURL, c);
   curl_easy_setopt(c, CURLOPT_HTTPPOST, NULL);
 
-  return request_perform(self, url, opts);
+  rc = request_perform(self, c, url, opts);
+
+  curl_easy_cleanup(c);
+
+  return rc;
 }
 
 
