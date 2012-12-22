@@ -8,7 +8,7 @@ static VALUE request_post(int argc, VALUE* argv, VALUE self);
 
 static VALUE request_alloc(VALUE self);
 static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts);
-
+static struct curl_slist* request_setheaders(VALUE self, CURL* c, VALUE opts);
 static size_t header_callback(void* buffer, size_t size, size_t count, void* self);
 static size_t data_callback  (void* buffer, size_t size, size_t count, void* self);
 
@@ -27,6 +27,7 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
   int   rc;
   long  code;
   VALUE resp = response_new();
+  struct curl_slist* hdrs = NULL;
 
   curl_easy_setopt(c, CURLOPT_HEADERFUNCTION, header_callback);
   curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, data_callback);
@@ -37,6 +38,10 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
   curl_easy_setopt(c, CURLOPT_WRITEHEADER, resp);
   curl_easy_setopt(c, CURLOPT_WRITEDATA,   resp);
 
+  if (opts != Qnil) {
+    hdrs = request_setheaders(self, c, opts);
+  }
+
   rc = curl_easy_perform(c);
   rb_iv_set(resp, "@curl_code", INT2NUM(rc));
 
@@ -46,6 +51,8 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
   } else {
     rb_iv_set(resp, "@curl_error", rb_str_new2(curl_easy_strerror(rc)));
   }
+
+  curl_slist_free_all(hdrs);
 
   return resp;
 }
@@ -84,6 +91,30 @@ static VALUE request_post(int argc, VALUE* argv, VALUE self)
 }
 
 
+static int request_add_header(VALUE key, VALUE val, VALUE in)
+{
+  struct curl_slist** list = (struct curl_slist**)in;
+  VALUE text = rb_str_plus(StringValue(key), rb_str_new2(": "));
+
+  rb_str_append(text, StringValue(val));
+
+  *list = curl_slist_append(*list, RSTRING_PTR(text));
+
+  return ST_CONTINUE;
+}
+
+static struct curl_slist* request_setheaders(VALUE self, CURL* c, VALUE opts)
+{
+  VALUE headers = rb_hash_aref(opts, ID2SYM(rb_intern("headers")));
+  struct curl_slist* list = NULL;
+
+  if (TYPE(headers) == T_HASH) {
+    rb_hash_foreach(headers, request_add_header, (VALUE)&list);
+    curl_easy_setopt(c, CURLOPT_HTTPHEADER, list);
+  }
+
+  return list;
+}
 
 /* internal curl callback functions */
 static size_t header_callback(void* buffer, size_t size, size_t count, void* self)
@@ -105,7 +136,7 @@ static size_t header_callback(void* buffer, size_t size, size_t count, void* sel
 static size_t data_callback(void* buffer, size_t size, size_t count, void* self)
 {
   VALUE body = rb_iv_get((VALUE)self, "@body");
-  rb_funcall(body, rb_intern("<<"), 1, rb_str_new2(buffer));
+  rb_str_cat2(body, buffer);
 
   return size * count;
 }

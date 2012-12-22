@@ -24,4 +24,14 @@ class SpecServer < Sinatra::Base
         :value => 1234
       })
   end
+
+  get '/params-test' do
+    JSON.dump(params)
+  end
+
+  get '/headers-test' do
+    r = request.env.select{|k, v| k =~ /^HTTP_/ }
+
+    JSON.dump(r)
+  end
 end
