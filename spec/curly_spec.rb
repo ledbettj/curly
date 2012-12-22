@@ -66,4 +66,13 @@ describe "Curly" do
     r.should eq(body)
   end
 
+  it "allows specifying a timeout" do
+    resp = Curly::Request.get("#{TEST_URL}/timeout-test",
+      :timeout => 1000
+    )
+
+    resp.status.should eq(0)
+    resp.curl_error.should =~ /timeout/i
+  end
+
 end

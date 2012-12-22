@@ -40,4 +40,9 @@ class SpecServer < Sinatra::Base
 
     JSON.dump(json)
   end
+
+  get '/timeout-test' do
+    sleep 3
+    "done"
+  end
 end

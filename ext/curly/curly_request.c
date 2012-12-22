@@ -28,7 +28,9 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
 {
   int   rc;
   long  code;
-  VALUE resp = response_new();
+  VALUE resp    = response_new();
+  VALUE timeout = Qnil;
+
   struct curl_slist* hdrs = NULL;
 
   curl_easy_setopt(c, CURLOPT_HEADERFUNCTION, header_callback);
@@ -42,6 +44,10 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
 
   if (opts != Qnil) {
     hdrs = request_setheaders(self, c, opts);
+
+    if ((timeout = rb_hash_aref(opts, ID2SYM(rb_intern("timeout")))) != Qnil) {
+      curl_easy_setopt(c, CURLOPT_TIMEOUT_MS, NUM2LONG(timeout));
+    }
   }
 
   rc = curl_easy_perform(c);
