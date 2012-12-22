@@ -2,5 +2,5 @@
 require "bundler/gem_tasks"
 
 task :native do
-  `cd ./ext/curly && make && cp *.bundle ../../lib/curly/`
+  `cd ./ext/curly && ruby ./extconf.rb && cp *.bundle *.so *.dll ../../lib/curly/`
 end

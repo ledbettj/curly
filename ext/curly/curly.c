@@ -31,11 +31,6 @@ static VALUE curly_alloc(VALUE self)
 
   Data_Wrap_Struct(self, NULL, curl_easy_cleanup, c);
 
-  curl_easy_setopt(c, CURLOPT_WRITEHEADER, response);
-  curl_easy_setopt(c, CURLOPT_HEADERFUNCTION, header_callback);
-
-  curl_easy_setopt(c, CURLOPT_WRITEDATA, response);
-  curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, data_callback);
 }
 
 
@@ -47,6 +42,12 @@ static VALUE client_get(VALUE self, VALUE url)
   int rc;
 
   Data_Get_Struct(self, CURL, c);
+
+  curl_easy_setopt(c, CURLOPT_WRITEHEADER, response);
+  curl_easy_setopt(c, CURLOPT_HEADERFUNCTION, header_callback);
+
+  curl_easy_setopt(c, CURLOPT_WRITEDATA, response);
+  curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, data_callback);
 
   curl_easy_setopt(c, CURLOPT_URL, RSTRING_PTR(StringValue(url)));
   rc = curl_easy_perform(c);
