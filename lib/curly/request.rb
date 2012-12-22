@@ -1,14 +1,12 @@
 class Curly::Request
   class << self
 
-    def get(url)
-      c = Curly::Request.new
-      c.get(url)
+    def get(url, opts = nil)
+      Curly::Request.new.get(url, opts)
     end
 
-    def post(url)
-      c = Curly::Request.new
-      c.post(url)
+    def post(url, opts = nil)
+      Curly::Request.post(url, opts)
     end
 
   end
