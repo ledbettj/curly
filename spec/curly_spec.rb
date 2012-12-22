@@ -12,11 +12,19 @@ describe "Curly" do
     SpecServer.stop
   end
 
-  it "runs the specs" do
-    resp = Curly::Request.get("http://localhost:4567")
+  it "returns the appropriate status code" do
+    resp = Curly::Request.get("http://localhost:4567/status-test")
+
+    resp.status.should eq(418)
+  end
+
+  it "returns the correct body" do
+    resp = Curly::Request.get("http://localhost:4567/body-test")
 
     resp.status.should eq(200)
-    resp.body.should   eq("hello world")
+    JSON.parse(resp.body).should eq({
+        'value' => 1234
+      })
   end
 
 end
