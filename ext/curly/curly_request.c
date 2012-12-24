@@ -29,14 +29,13 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
   int   rc;
   long  code;
   VALUE resp    = response_new();
-  VALUE timeout = Qnil;
+  VALUE timeout = Qnil, params = Qnil;
 
   struct curl_slist* hdrs = NULL;
 
   curl_easy_setopt(c, CURLOPT_HEADERFUNCTION, header_callback);
   curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, data_callback);
 
-  curl_easy_setopt(c, CURLOPT_URL, RSTRING_PTR(StringValue(url)));
 
   /* pass the response instance to our header/data callback functions */
   curl_easy_setopt(c, CURLOPT_WRITEHEADER, resp);
@@ -45,10 +44,21 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
   if (opts != Qnil) {
     hdrs = request_setheaders(self, c, opts);
 
+    if ((params = rb_hash_aref(opts, ID2SYM(rb_intern("params")))) != Qnil) {
+      if (rb_funcall(params, rb_intern("respond_to?"), 1, ID2SYM(rb_intern("to_query"))) == Qtrue) {
+        url = rb_str_plus(url, rb_str_new2("?"));
+        url = rb_str_append(url, rb_funcall(params, rb_intern("to_query"), 0));
+      } else {
+        printf("passed params but to_query not found :-(");
+      }
+    }
+
     if ((timeout = rb_hash_aref(opts, ID2SYM(rb_intern("timeout")))) != Qnil) {
       curl_easy_setopt(c, CURLOPT_TIMEOUT_MS, NUM2LONG(timeout));
     }
   }
+
+  curl_easy_setopt(c, CURLOPT_URL, RSTRING_PTR(StringValue(url)));
 
   rc = curl_easy_perform(c);
   rb_iv_set(resp, "@curl_code", INT2NUM(rc));
@@ -132,7 +142,7 @@ static struct curl_slist* request_setheaders(VALUE self, CURL* c, VALUE opts)
 static size_t header_callback(void* buffer, size_t size, size_t count, void* self)
 {
   VALUE hash = rb_iv_get((VALUE)self, "@headers");
-  VALUE str  = rb_str_new2(buffer);
+  VALUE str  = rb_str_new(buffer, size * count);
   VALUE arr;
 
   rb_funcall(str, rb_intern("chomp!"), 0);
@@ -148,7 +158,7 @@ static size_t header_callback(void* buffer, size_t size, size_t count, void* sel
 static size_t data_callback(void* buffer, size_t size, size_t count, void* self)
 {
   VALUE body = rb_iv_get((VALUE)self, "@body");
-  rb_str_cat2(body, buffer);
+  rb_str_cat(body, buffer, size * count);
 
   return size * count;
 }

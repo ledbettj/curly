@@ -4,7 +4,7 @@ require 'curly'
 require 'pry'
 
 TEST_URL = "http://localhost:4567"
-describe "Curly" do
+describe "Curly::Request" do
 
   before(:all) do
     SpecServer.start
@@ -23,7 +23,6 @@ describe "Curly" do
   it "returns the correct body" do
     resp = Curly::Request.get("#{TEST_URL}/body-test")
 
-    resp.status.should eq(200)
     JSON.parse(resp.body).should eq({
         'value' => 1234
       })
@@ -31,11 +30,28 @@ describe "Curly" do
 
   it "handles params passed in the URL" do
     resp = Curly::Request.get("#{TEST_URL}/params-test?x=a&y=b&test=hello+world")
-    JSON.parse(resp.body).should eq({
-        'x' => 'a',
+
+    JSON.parse(resp.body).should eq(
+      'x' => 'a',
+      'y' => 'b',
+      'test' => 'hello world'
+    )
+  end
+
+  it "handles serializing params" do
+    resp = Curly::Request.get("#{TEST_URL}/params-test",
+      :params => {
+        :x => 'a',
         'y' => 'b',
         'test' => 'hello world'
-      })
+      }
+    )
+
+    JSON.parse(resp.body).should eq(
+      'x' => 'a',
+      'y' => 'b',
+      'test' => 'hello world'
+    )
   end
 
   it "handles setting headers" do
