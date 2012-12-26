@@ -1,24 +1,39 @@
 # Curly
 
-TODO: Write a gem description
+A thin ruby binding for libcurl.
 
 ## Installation
 
 Add this line to your application's Gemfile:
 
-    gem 'curly'
+    gem 'curly', git: 'https://github.com/ledbettj/curly.git'
 
 And then execute:
 
     $ bundle
 
-Or install it yourself as:
-
-    $ gem install curly
-
 ## Usage
 
-TODO: Write usage instructions here
+Curly is not ready for regular use.  Some features are not fully implemented or adequately tested.
+
+```ruby
+    require 'curly'
+    
+    response = Curly::Request.post("http://api.example.com/items",
+      headers: {
+        'X-Example-Api-Key' => 'abcf358a63fc',
+        'Content-type'      => 'application/json'
+      },
+      body: {
+        'name'  => 'New Item',
+        'price' => 3.50,
+      }.to_json
+    )
+    
+    raise StandardError.new unless response.status == 200
+    
+    puts "Server said: #{response.status}: #{JSON.parse(response.body)}"
+```
 
 ## Contributing
 
