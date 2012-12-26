@@ -11,6 +11,8 @@ Add this line to your application's Gemfile:
 And then execute:
 
     $ bundle
+    
+Note that `curly` provided by rubygems.org is something completely different which appears to have been abandonded.
 
 ## Usage
 
