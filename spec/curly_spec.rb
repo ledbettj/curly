@@ -14,6 +14,14 @@ describe "Curly::Request" do
     SpecServer.stop
   end
 
+  let(:params) do
+    {
+      'x' => 'a',
+      'y' => 'b',
+      'test' => 'hello world'
+    }
+  end
+
   it "returns the appropriate status code" do
     resp = Curly::Request.get("#{TEST_URL}/status-test")
 
@@ -31,27 +39,18 @@ describe "Curly::Request" do
   it "handles params passed in the URL" do
     resp = Curly::Request.get("#{TEST_URL}/params-test?x=a&y=b&test=hello+world")
 
-    JSON.parse(resp.body).should eq(
-      'x' => 'a',
-      'y' => 'b',
-      'test' => 'hello world'
-    )
+    JSON.parse(resp.body).should eq(params)
   end
 
-  it "handles serializing params" do
+  it "handles serializing params without active support" do
+    if params.respond_to?(:to_query)
+      Hash.send(:remove_method, :to_query)
+    end
     resp = Curly::Request.get("#{TEST_URL}/params-test",
-      :params => {
-        :x => 'a',
-        'y' => 'b',
-        'test' => 'hello world'
-      }
+      :params => params
     )
 
-    JSON.parse(resp.body).should eq(
-      'x' => 'a',
-      'y' => 'b',
-      'test' => 'hello world'
-    )
+    JSON.parse(resp.body).should eq(params)
   end
 
   it "handles setting headers" do

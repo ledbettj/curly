@@ -44,12 +44,20 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
   if (opts != Qnil) {
     hdrs = request_setheaders(self, c, opts);
 
+    /* yes this is nasty and should be refactored */
     if ((params = rb_hash_aref(opts, ID2SYM(rb_intern("params")))) != Qnil) {
+      url = rb_str_plus(url, rb_str_new2("?"));
       if (rb_funcall(params, rb_intern("respond_to?"), 1, ID2SYM(rb_intern("to_query"))) == Qtrue) {
-        url = rb_str_plus(url, rb_str_new2("?"));
         url = rb_str_append(url, rb_funcall(params, rb_intern("to_query"), 0));
       } else {
-        printf("passed params but to_query not found :-(");
+        url = rb_str_append(url,
+          rb_funcall(
+            rb_const_get(rb_const_get(rb_cObject, rb_intern("Curly")), rb_intern("Parameterize")),
+            rb_intern("query_string"),
+            1,
+            params
+          )
+        );
       }
     }
 
