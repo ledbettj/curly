@@ -24,6 +24,7 @@ static struct {
   VALUE timeout;
 } syms;
 
+
 void Init_curly_request(VALUE curly_mod)
 {
   VALUE request = rb_define_class_under(curly_mod, "Request", rb_cObject);
@@ -127,10 +128,12 @@ static VALUE request_post(int argc, VALUE* argv, VALUE self)
 static int request_add_header(VALUE key, VALUE val, VALUE in)
 {
   struct curl_slist** list = (struct curl_slist**)in;
-  VALUE text = rb_str_plus(StringValue(key), rb_str_new2(": "));
 
+  /* build the 'Header: Value' string */
+  VALUE text = rb_str_plus(StringValue(key), rb_str_new2(": "));
   rb_str_append(text, StringValue(val));
 
+  /* update the head of the list so that the next item is appended correctly */
   *list = curl_slist_append(*list, RSTRING_PTR(text));
 
   return ST_CONTINUE;
@@ -149,13 +152,14 @@ static struct curl_slist* request_setheaders(VALUE self, CURL* c, VALUE opts)
   return list;
 }
 
-/* internal curl callback functions */
+/* invoked by curl_easy_perform when a header is available */
 static size_t header_callback(void* buffer, size_t size, size_t count, void* self)
 {
   VALUE hash = rb_iv_get((VALUE)self, "@headers");
   VALUE str  = rb_str_new(buffer, size * count);
   VALUE arr;
 
+  /* make sure we have a string in the form 'Header: Value' then parse it. */
   rb_funcall(str, rb_intern("chomp!"), 0);
   arr = rb_funcall(str, rb_intern("split"), 2, rb_str_new2(": "), INT2NUM(2));
 
@@ -166,6 +170,7 @@ static size_t header_callback(void* buffer, size_t size, size_t count, void* sel
   return size * count;
 }
 
+/* invoked by curl_easy_perform when data is available */
 static size_t data_callback(void* buffer, size_t size, size_t count, void* self)
 {
   VALUE body = rb_iv_get((VALUE)self, "@body");
@@ -174,7 +179,9 @@ static size_t data_callback(void* buffer, size_t size, size_t count, void* self)
   return size * count;
 }
 
-
+/* given a set of key/value pairs, build a url encoded string of the form
+ * key=value&key2=value2 using ActiveSupport's to_query if available or
+ * our own compatible implementation */
 static VALUE build_query_string(VALUE params)
 {
   VALUE paramize;
@@ -182,11 +189,12 @@ static VALUE build_query_string(VALUE params)
                                   syms.to_query);
 
   if (has_to_query == Qtrue) {
+    /* use active support */
     return rb_funcall(params, rb_intern("to_query"), 0);
   } else {
     paramize = rb_const_get(rb_const_get(rb_cObject, rb_intern("Curly")),
                             rb_intern("Parameterize"));
-
+    /* use our own version */
     return rb_funcall(paramize, rb_intern("query_string"), 1, params);
   }
 }
