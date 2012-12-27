@@ -1,6 +1,6 @@
 #include <ruby.h>
-#include "curly_request.h"
-#include "curly_response.h"
+#include "request.h"
+#include "response.h"
 
 void Init_curly(void)
 {

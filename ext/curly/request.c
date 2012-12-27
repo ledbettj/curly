@@ -1,7 +1,7 @@
 #include <ruby.h>
 #include <curl/curl.h>
-#include "curly_request.h"
-#include "curly_response.h"
+#include "request.h"
+#include "response.h"
 
 static VALUE request_get (int argc, VALUE* argv, VALUE self);
 static VALUE request_post(int argc, VALUE* argv, VALUE self);

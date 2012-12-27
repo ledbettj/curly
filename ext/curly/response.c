@@ -1,4 +1,4 @@
-#include "curly_response.h"
+#include "response.h"
 
 static VALUE response_init(VALUE self)
 {
