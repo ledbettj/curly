@@ -15,13 +15,26 @@ static int request_add_header(VALUE key, VALUE val, VALUE in);
 static size_t header_callback(void* buffer, size_t size, size_t count, void* self);
 static size_t data_callback  (void* buffer, size_t size, size_t count, void* self);
 
-void Init_curly_request(void)
+static struct {
+  VALUE to_query;
+  VALUE params;
+  VALUE body;
+  VALUE headers;
+  VALUE timeout;
+} syms;
+
+void Init_curly_request(VALUE curly_mod)
 {
-  VALUE curly   = rb_const_get(rb_cObject, rb_intern("Curly"));
-  VALUE request = rb_define_class_under(curly, "Request", rb_cObject);
+  VALUE request = rb_define_class_under(curly_mod, "Request", rb_cObject);
 
   rb_define_singleton_method(request, "get",  request_get,  -1);
   rb_define_singleton_method(request, "post", request_post, -1);
+
+  syms.to_query = ID2SYM(rb_intern("to_query"));
+  syms.params   = ID2SYM(rb_intern("params"));
+  syms.body     = ID2SYM(rb_intern("body"));
+  syms.headers  = ID2SYM(rb_intern("headers"));
+  syms.timeout  = ID2SYM(rb_intern("timeout"));
 }
 
 static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
@@ -45,9 +58,9 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
     hdrs = request_setheaders(self, c, opts);
 
     /* yes this is nasty and should be refactored */
-    if ((params = rb_hash_aref(opts, ID2SYM(rb_intern("params")))) != Qnil) {
+    if ((params = rb_hash_aref(opts, syms.params)) != Qnil) {
       url = rb_str_plus(url, rb_str_new2("?"));
-      if (rb_funcall(params, rb_intern("respond_to?"), 1, ID2SYM(rb_intern("to_query"))) == Qtrue) {
+      if (rb_funcall(params, rb_intern("respond_to?"), 1, syms.to_query) == Qtrue) {
         url = rb_str_append(url, rb_funcall(params, rb_intern("to_query"), 0));
       } else {
         url = rb_str_append(url,
@@ -61,7 +74,7 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
       }
     }
 
-    if ((timeout = rb_hash_aref(opts, ID2SYM(rb_intern("timeout")))) != Qnil) {
+    if ((timeout = rb_hash_aref(opts, syms.timeout)) != Qnil) {
       curl_easy_setopt(c, CURLOPT_TIMEOUT_MS, NUM2LONG(timeout));
     }
   }
@@ -110,7 +123,7 @@ static VALUE request_post(int argc, VALUE* argv, VALUE self)
   curl_easy_setopt(c, CURLOPT_HTTPPOST, NULL);
 
   if (opts != Qnil &&
-      (body = rb_hash_aref(opts, ID2SYM(rb_intern("body")))) != Qnil) {
+      (body = rb_hash_aref(opts, syms.body)) != Qnil) {
     curl_easy_setopt(c, CURLOPT_POSTFIELDS, RSTRING_PTR(StringValue(body)));
   }
 
@@ -135,7 +148,7 @@ static int request_add_header(VALUE key, VALUE val, VALUE in)
 
 static struct curl_slist* request_setheaders(VALUE self, CURL* c, VALUE opts)
 {
-  VALUE headers = rb_hash_aref(opts, ID2SYM(rb_intern("headers")));
+  VALUE headers = rb_hash_aref(opts, syms.headers);
   struct curl_slist* list = NULL;
 
   if (TYPE(headers) == T_HASH) {

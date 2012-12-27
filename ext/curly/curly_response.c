@@ -19,10 +19,9 @@ VALUE response_new(void)
          );
 }
 
-void Init_curly_response(void)
+void Init_curly_response(VALUE curly_mod)
 {
-  VALUE curly    = rb_const_get(rb_cObject, rb_intern("Curly"));
-  VALUE response = rb_define_class_under(curly, "Response", rb_cObject);
+  VALUE response = rb_define_class_under(curly_mod, "Response", rb_cObject);
 
   rb_define_method(response, "initialize", response_init, 0);
   rb_define_attr(response, "body",    1, 0);

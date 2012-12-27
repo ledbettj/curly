@@ -4,8 +4,8 @@
 
 void Init_curly(void)
 {
-  rb_define_module("Curly");
+  VALUE curly_mod = rb_define_module("Curly");
 
-  Init_curly_response();
-  Init_curly_request();
+  Init_curly_response(curly_mod);
+  Init_curly_request(curly_mod);
 }
