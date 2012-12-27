@@ -11,6 +11,7 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts);
 
 static struct curl_slist* request_setheaders(VALUE self, CURL* c, VALUE opts);
 static int request_add_header(VALUE key, VALUE val, VALUE in);
+static VALUE build_query_string(VALUE params);
 
 static size_t header_callback(void* buffer, size_t size, size_t count, void* self);
 static size_t data_callback  (void* buffer, size_t size, size_t count, void* self);
@@ -41,37 +42,26 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
 {
   int   rc;
   long  code;
-  VALUE resp    = response_new();
-  VALUE timeout = Qnil, params = Qnil;
+  VALUE timeout, params;
+  VALUE resp = response_new();
 
   struct curl_slist* hdrs = NULL;
 
+  /* invoke header_callback when a header is received and pass `resp` */
   curl_easy_setopt(c, CURLOPT_HEADERFUNCTION, header_callback);
+  curl_easy_setopt(c, CURLOPT_WRITEHEADER,    resp);
+
+  /* invoke data_callback when a chunk of data is received and pass `resp` */
   curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, data_callback);
+  curl_easy_setopt(c, CURLOPT_WRITEDATA,     resp);
 
-
-  /* pass the response instance to our header/data callback functions */
-  curl_easy_setopt(c, CURLOPT_WRITEHEADER, resp);
-  curl_easy_setopt(c, CURLOPT_WRITEDATA,   resp);
-
-  if (opts != Qnil) {
+  /* handle headers, query string, timeout, etc. */
+  if (TYPE(opts) == T_HASH) {
     hdrs = request_setheaders(self, c, opts);
 
-    /* yes this is nasty and should be refactored */
     if ((params = rb_hash_aref(opts, syms.params)) != Qnil) {
       url = rb_str_plus(url, rb_str_new2("?"));
-      if (rb_funcall(params, rb_intern("respond_to?"), 1, syms.to_query) == Qtrue) {
-        url = rb_str_append(url, rb_funcall(params, rb_intern("to_query"), 0));
-      } else {
-        url = rb_str_append(url,
-          rb_funcall(
-            rb_const_get(rb_const_get(rb_cObject, rb_intern("Curly")), rb_intern("Parameterize")),
-            rb_intern("query_string"),
-            1,
-            params
-          )
-        );
-      }
+      url = rb_str_append(url, build_query_string(params));
     }
 
     if ((timeout = rb_hash_aref(opts, syms.timeout)) != Qnil) {
@@ -182,4 +172,21 @@ static size_t data_callback(void* buffer, size_t size, size_t count, void* self)
   rb_str_cat(body, buffer, size * count);
 
   return size * count;
+}
+
+
+static VALUE build_query_string(VALUE params)
+{
+  VALUE paramize;
+  VALUE has_to_query = rb_funcall(params, rb_intern("respond_to?"), 1,
+                                  syms.to_query);
+
+  if (has_to_query == Qtrue) {
+    return rb_funcall(params, rb_intern("to_query"), 0);
+  } else {
+    paramize = rb_const_get(rb_const_get(rb_cObject, rb_intern("Curly")),
+                            rb_intern("Parameterize"));
+
+    return rb_funcall(paramize, rb_intern("query_string"), 1, params);
+  }
 }
