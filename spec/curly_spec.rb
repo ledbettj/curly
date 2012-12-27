@@ -28,6 +28,16 @@ describe "Curly::Request" do
     resp.status.should eq(418)
   end
 
+  it "returns the correct values for success?" do
+
+    resp = Curly::Request.get("#{TEST_URL}/status-test")
+    resp.success?.should eq(false)
+
+    resp = Curly::Request.get("#{TEST_URL}/params-test")
+    resp.success?.should eq(true)
+
+  end
+
   it "returns the correct body" do
     resp = Curly::Request.get("#{TEST_URL}/body-test")
 
@@ -88,6 +98,7 @@ describe "Curly::Request" do
 
     resp.status.should eq(0)
     resp.curl_error.should =~ /timeout/i
+    resp.timed_out?.should eq(true)
   end
 
 end
