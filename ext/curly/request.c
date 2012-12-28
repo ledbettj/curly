@@ -96,7 +96,8 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
 static VALUE request_get(int argc, VALUE* argv, VALUE self)
 {
   CURL* c = curl_easy_init();
-  VALUE url, opts = Qnil, rc;
+  VALUE url, rc;
+  VALUE opts = Qnil;
 
   rb_scan_args(argc, argv, "11", &url, &opts);
 
@@ -112,7 +113,8 @@ static VALUE request_get(int argc, VALUE* argv, VALUE self)
 static VALUE request_post(int argc, VALUE* argv, VALUE self)
 {
   CURL* c = curl_easy_init();
-  VALUE url, opts = Qnil, rc, body = Qnil;
+  VALUE opts = Qnil, body = Qnil;
+  VALUE url, rc;
 
   rb_scan_args(argc, argv, "11", &url, &opts);
 
@@ -120,6 +122,7 @@ static VALUE request_post(int argc, VALUE* argv, VALUE self)
 
   if (opts != Qnil &&
       (body = rb_hash_aref(opts, syms.body)) != Qnil) {
+    /* TODO: handle case where `body` is a hash. */
     curl_easy_setopt(c, CURLOPT_POSTFIELDS, RSTRING_PTR(StringValue(body)));
   }
 
