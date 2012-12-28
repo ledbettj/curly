@@ -4,8 +4,10 @@
 #include "response.h"
 
 /* Request member functions */
-static VALUE request_get (int argc, VALUE* argv, VALUE self);
-static VALUE request_post(int argc, VALUE* argv, VALUE self);
+static VALUE request_get   (int argc, VALUE* argv, VALUE self);
+static VALUE request_post  (int argc, VALUE* argv, VALUE self);
+static VALUE request_put   (int argc, VALUE* argv, VALUE self);
+static VALUE request_delete(int argc, VALUE* argv, VALUE self);
 
 /* internal helpers */
 static VALUE request_alloc(VALUE self);
@@ -31,8 +33,10 @@ void Init_curly_request(VALUE curly_mod)
 {
   VALUE request = rb_define_class_under(curly_mod, "Request", rb_cObject);
 
-  rb_define_singleton_method(request, "get",  request_get,  -1);
-  rb_define_singleton_method(request, "post", request_post, -1);
+  rb_define_singleton_method(request, "get",    request_get,    -1);
+  rb_define_singleton_method(request, "post",   request_post,   -1);
+  rb_define_singleton_method(request, "put",    request_put,    -1);
+  rb_define_singleton_method(request, "delete", request_delete, -1);
 
   syms.to_query = ID2SYM(rb_intern("to_query"));
   syms.params   = ID2SYM(rb_intern("params"));
@@ -132,6 +136,50 @@ static VALUE request_post(int argc, VALUE* argv, VALUE self)
 
   return rc;
 }
+
+static VALUE request_put(int argc, VALUE* argv, VALUE self)
+{
+  CURL* c = curl_easy_init();
+  VALUE opts = Qnil, body = Qnil;
+  VALUE url, rc;
+
+  rb_scan_args(argc, argv, "11", &url, &opts);
+
+
+  if (opts != Qnil &&
+      (body = rb_hash_aref(opts, syms.body)) != Qnil) {
+    /* TODO: handle case where `body` is a hash. */
+    curl_easy_setopt(c, CURLOPT_POSTFIELDS, RSTRING_PTR(StringValue(body)));
+  }
+
+  curl_easy_setopt(c, CURLOPT_CUSTOMREQUEST, "PUT");
+
+  rc = request_perform(self, c, url, opts);
+
+  curl_easy_cleanup(c);
+
+  return rc;
+}
+
+/* externally visable functions */
+static VALUE request_delete(int argc, VALUE* argv, VALUE self)
+{
+  CURL* c = curl_easy_init();
+  VALUE url, rc;
+  VALUE opts = Qnil;
+
+  rb_scan_args(argc, argv, "11", &url, &opts);
+
+  curl_easy_setopt(c, CURLOPT_CUSTOMREQUEST, "DELETE");
+
+  rc = request_perform(self, c, url, opts);
+
+  curl_easy_cleanup(c);
+
+  return rc;
+}
+
+
 
 static int request_add_header(VALUE key, VALUE val, VALUE in)
 {

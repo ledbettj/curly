@@ -104,4 +104,26 @@ describe "Curly::Request" do
     resp.timed_out?.should eq(true)
   end
 
+  it "can PUT" do
+    body = {
+      'hello' => 'world',
+      'hi' => 3
+    }
+
+    resp = Curly::Request.put("#{TEST_URL}/put-test",
+      :headers => {
+        'Content-Type' => 'application/json'
+      },
+      :body => JSON.dump(body)
+    )
+
+    resp.status.should eq(200)
+    JSON.parse(resp.body).should eq(body)
+  end
+
+  it "can DELETE" do
+    resp = Curly::Request.delete("#{TEST_URL}/delete-test")
+    resp.status.should eq(200)
+  end
+
 end

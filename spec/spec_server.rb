@@ -41,6 +41,16 @@ class SpecServer < Sinatra::Base
     JSON.dump(json)
   end
 
+  put '/put-test' do
+    json = JSON.parse(request.body.read)
+
+    JSON.dump(json)
+  end
+
+  delete '/delete-test' do
+    status 200
+  end
+
   get '/timeout-test' do
     sleep 3
     "done"
