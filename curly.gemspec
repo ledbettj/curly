@@ -1,12 +1,13 @@
 # -*- encoding: utf-8 -*-
 require File.expand_path('../lib/curly/version', __FILE__)
 
+
 Gem::Specification.new do |gem|
   gem.authors       = ["John Ledbetter"]
-  gem.email         = ["john.ledbetter@oracle.com"]
-  gem.description   = %q{A gem description}
-  gem.summary       = %q{A gem summary}
-  gem.homepage      = ""
+  gem.email         = ["john@throttle.io"]
+  gem.description   = %q{A thin libcurl wrapper for ruby.}
+  gem.summary       = %q{A thin libcurl wrapper for ruby.}
+  gem.homepage      = "http://github.com/ledbettj/curly"
 
   gem.files         = `git ls-files`.split($\)
   gem.extensions    = ['ext/curly/extconf.rb']
@@ -16,10 +17,8 @@ Gem::Specification.new do |gem|
   gem.require_paths = ["lib"]
   gem.version       = Curly::VERSION
 
-  gem.add_development_dependency 'pry'
-  gem.add_development_dependency 'rake'
-  gem.add_development_dependency 'rake-compiler'
-  gem.add_development_dependency 'rspec'
-  gem.add_development_dependency 'sinatra'
-  gem.add_development_dependency 'activesupport'
+  DEVELOPMENT_DEPENDENCIES = ['pry', 'rake', 'rake-compiler', 'rspec',
+                              'sinatra', 'activesupport']
+
+  DEVELOPMENT_DEPENDENCIES.each { |d| gem.add_development_dependency(d) }
 end
