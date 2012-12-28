@@ -3,16 +3,18 @@
 #include "request.h"
 #include "response.h"
 
+/* Request member functions */
 static VALUE request_get (int argc, VALUE* argv, VALUE self);
 static VALUE request_post(int argc, VALUE* argv, VALUE self);
 
+/* internal helpers */
 static VALUE request_alloc(VALUE self);
 static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts);
-
-static struct curl_slist* request_setheaders(VALUE self, CURL* c, VALUE opts);
+static struct curl_slist* request_build_headers(VALUE self, CURL* c, VALUE opts);
 static int request_add_header(VALUE key, VALUE val, VALUE in);
 static VALUE build_query_string(VALUE params);
 
+/* curl callbacks */
 static size_t header_callback(void* buffer, size_t size, size_t count, void* self);
 static size_t data_callback  (void* buffer, size_t size, size_t count, void* self);
 
@@ -43,10 +45,10 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
 {
   int   rc;
   long  code;
-  VALUE timeout, params;
+  VALUE timeout, params, headers;
   VALUE resp = response_new();
 
-  struct curl_slist* hdrs = NULL;
+  struct curl_slist* header_list = NULL;
 
   /* invoke header_callback when a header is received and pass `resp` */
   curl_easy_setopt(c, CURLOPT_HEADERFUNCTION, header_callback);
@@ -58,7 +60,10 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
 
   /* handle headers, query string, timeout, etc. */
   if (TYPE(opts) == T_HASH) {
-    hdrs = request_setheaders(self, c, opts);
+
+    if ((headers = rb_hash_aref(opts, syms.headers)) != Qnil) {
+      header_list = request_build_headers(self, c, headers);
+    }
 
     if ((params = rb_hash_aref(opts, syms.params)) != Qnil) {
       url = rb_str_plus(url, rb_str_new2("?"));
@@ -82,7 +87,7 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
     rb_iv_set(resp, "@curl_error", rb_str_new2(curl_easy_strerror(rc)));
   }
 
-  curl_slist_free_all(hdrs);
+  curl_slist_free_all(header_list);
 
   return resp;
 }
@@ -139,9 +144,8 @@ static int request_add_header(VALUE key, VALUE val, VALUE in)
   return ST_CONTINUE;
 }
 
-static struct curl_slist* request_setheaders(VALUE self, CURL* c, VALUE opts)
+static struct curl_slist* request_build_headers(VALUE self, CURL* c, VALUE headers)
 {
-  VALUE headers = rb_hash_aref(opts, syms.headers);
   struct curl_slist* list = NULL;
 
   if (TYPE(headers) == T_HASH) {

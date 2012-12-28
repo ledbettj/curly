@@ -66,12 +66,15 @@ describe "Curly::Request" do
   it "handles setting headers" do
     resp = Curly::Request.get("#{TEST_URL}/headers-test",
       :headers => {
-        'X-Example-Header' => 'five'
+        'X-Example-Header' => 'five',
+        'X-Another-Header' => 'abc'
       }
     )
 
     r = JSON.parse(resp.body)
     r['HTTP_X_EXAMPLE_HEADER'].should eq('five')
+    r['HTTP_X_ANOTHER_HEADER'].should eq('abc')
+
   end
 
   it "handles posting data" do
