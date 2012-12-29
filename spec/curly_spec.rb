@@ -38,6 +38,13 @@ describe "Curly::Request" do
 
   end
 
+  it "aliases code to status" do
+
+    resp = Curly::Request.get("#{TEST_URL}/status-test")
+    resp.code.should eq(resp.status)
+  end
+
+
   it "returns the correct body" do
     resp = Curly::Request.get("#{TEST_URL}/body-test")
 

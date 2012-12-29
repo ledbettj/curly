@@ -48,4 +48,9 @@ void Init_curly_response(VALUE curly_mod)
   rb_define_attr(response, "curl_code",  1, 0);
   rb_define_attr(response, "curl_error", 1, 0);
 
+  /* provide some aliases to match Typhoeus */
+  rb_alias(response, rb_intern("code"), rb_intern("status"));
+  rb_alias(response, rb_intern("curl_return_code"), rb_intern("curl_code"));
+  rb_alias(response, rb_intern("curl_error_message"), rb_intern("curl_error"));
+
 }
