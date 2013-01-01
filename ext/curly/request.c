@@ -9,6 +9,9 @@ static VALUE request_post  (int argc, VALUE* argv, VALUE self);
 static VALUE request_put   (int argc, VALUE* argv, VALUE self);
 static VALUE request_delete(int argc, VALUE* argv, VALUE self);
 
+static VALUE request_initialize(int argc, VALUE* argv, VALUE self);
+static VALUE request_run(VALUE self);
+
 /* internal helpers */
 static VALUE request_alloc(VALUE self);
 static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts);
@@ -26,6 +29,8 @@ static struct {
   VALUE body;
   VALUE headers;
   VALUE timeout;
+  VALUE method;
+  VALUE get, post, put, delete;
 } syms;
 
 
@@ -38,11 +43,82 @@ void Init_curly_request(VALUE curly_mod)
   rb_define_singleton_method(request, "put",    request_put,    -1);
   rb_define_singleton_method(request, "delete", request_delete, -1);
 
+  rb_define_method(request, "initialize", request_initialize, -1);
+  rb_define_method(request, "run",        request_run,         0);
+
   syms.to_query = ID2SYM(rb_intern("to_query"));
   syms.params   = ID2SYM(rb_intern("params"));
   syms.body     = ID2SYM(rb_intern("body"));
   syms.headers  = ID2SYM(rb_intern("headers"));
   syms.timeout  = ID2SYM(rb_intern("timeout"));
+  syms.method   = ID2SYM(rb_intern("method"));
+  syms.get      = ID2SYM(rb_intern("get"));
+  syms.post     = ID2SYM(rb_intern("post"));
+  syms.put      = ID2SYM(rb_intern("put"));
+  syms.delete   = ID2SYM(rb_intern("delete"));
+
+}
+
+
+static VALUE request_initialize(int argc, VALUE* argv, VALUE self)
+{
+  VALUE url, opts;
+
+  rb_scan_args(argc, argv, "11", &url, &opts);
+  opts = (opts == Qnil ? rb_hash_new() : opts);
+
+  rb_iv_set(self, "@url",     url);
+  rb_iv_set(self, "@options", opts);
+
+  return self;
+}
+
+static VALUE request_run(VALUE self)
+{
+  VALUE url    = rb_iv_get(self, "@url");
+  VALUE opts   = rb_iv_get(self, "@options");
+  VALUE method = rb_hash_aref(opts, syms.method);
+  CURL* c      = curl_easy_init();
+
+  VALUE body, resp;
+
+
+  method = (method == Qnil ? syms.get : rb_funcall(method, rb_intern("to_sym"), 0));
+
+  if (method == syms.get) {
+    curl_easy_setopt(c, CURLOPT_HTTPGET, 1L);
+  } else if (method == syms.post) {
+    curl_easy_setopt(c, CURLOPT_HTTPPOST, NULL);
+  } else if (method == syms.put) {
+    curl_easy_setopt(c, CURLOPT_CUSTOMREQUEST, "PUT");
+  } else if (method == syms.delete) {
+    curl_easy_setopt(c, CURLOPT_CUSTOMREQUEST, "DELETE");
+  } else {
+    /* TODO: rb_raise_whatever */
+  }
+
+  if ((body = rb_hash_aref(opts, syms.body)) != Qnil) {
+    /* TODO: handle case where `body` is a hash. */
+    curl_easy_setopt(c, CURLOPT_POSTFIELDS, RSTRING_PTR(StringValue(body)));
+  }
+
+  resp = request_perform(self, c, url, opts);
+
+  curl_easy_cleanup(c);
+
+  return resp;
+}
+
+static VALUE request_new(VALUE url, VALUE opts)
+{
+  VALUE args[2] = { url, opts };
+
+  return rb_class_new_instance(2, args,
+           rb_const_get(
+             rb_const_get(rb_cObject, rb_intern("Curly")),
+             rb_intern("Request")
+           )
+         );
 }
 
 static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
@@ -106,19 +182,16 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
  */
 static VALUE request_get(int argc, VALUE* argv, VALUE self)
 {
-  CURL* c = curl_easy_init();
-  VALUE url, rc;
-  VALUE opts = Qnil;
+  VALUE req, url, opts;
 
   rb_scan_args(argc, argv, "11", &url, &opts);
+  opts = (opts == Qnil ? rb_hash_new() : opts);
 
-  curl_easy_setopt(c, CURLOPT_HTTPGET, 1L);
+  rb_hash_aset(opts, syms.method, syms.get);
 
-  rc = request_perform(self, c, url, opts);
+  req = request_new(url, opts);
 
-  curl_easy_cleanup(c);
-
-  return rc;
+  return rb_funcall(req, rb_intern("run"), 0);
 }
 
 /*
@@ -131,25 +204,16 @@ static VALUE request_get(int argc, VALUE* argv, VALUE self)
  */
 static VALUE request_post(int argc, VALUE* argv, VALUE self)
 {
-  CURL* c = curl_easy_init();
-  VALUE opts = Qnil, body = Qnil;
-  VALUE url, rc;
+  VALUE req, url, opts;
 
   rb_scan_args(argc, argv, "11", &url, &opts);
+  opts = (opts == Qnil ? rb_hash_new() : opts);
 
-  curl_easy_setopt(c, CURLOPT_HTTPPOST, NULL);
+  rb_hash_aset(opts, syms.method, syms.post);
 
-  if (opts != Qnil &&
-      (body = rb_hash_aref(opts, syms.body)) != Qnil) {
-    /* TODO: handle case where `body` is a hash. */
-    curl_easy_setopt(c, CURLOPT_POSTFIELDS, RSTRING_PTR(StringValue(body)));
-  }
+  req = request_new(url, opts);
 
-  rc = request_perform(self, c, url, opts);
-
-  curl_easy_cleanup(c);
-
-  return rc;
+  return rb_funcall(req, rb_intern("run"), 0);
 }
 
 /*
@@ -162,26 +226,16 @@ static VALUE request_post(int argc, VALUE* argv, VALUE self)
  */
 static VALUE request_put(int argc, VALUE* argv, VALUE self)
 {
-  CURL* c = curl_easy_init();
-  VALUE opts = Qnil, body = Qnil;
-  VALUE url, rc;
+  VALUE req, url, opts;
 
   rb_scan_args(argc, argv, "11", &url, &opts);
+  opts = (opts == Qnil ? rb_hash_new() : opts);
 
+  rb_hash_aset(opts, syms.method, syms.put);
 
-  if (opts != Qnil &&
-      (body = rb_hash_aref(opts, syms.body)) != Qnil) {
-    /* TODO: handle case where `body` is a hash. */
-    curl_easy_setopt(c, CURLOPT_POSTFIELDS, RSTRING_PTR(StringValue(body)));
-  }
+  req = request_new(url, opts);
 
-  curl_easy_setopt(c, CURLOPT_CUSTOMREQUEST, "PUT");
-
-  rc = request_perform(self, c, url, opts);
-
-  curl_easy_cleanup(c);
-
-  return rc;
+  return rb_funcall(req, rb_intern("run"), 0);
 }
 
 /*
@@ -194,21 +248,17 @@ static VALUE request_put(int argc, VALUE* argv, VALUE self)
  */
 static VALUE request_delete(int argc, VALUE* argv, VALUE self)
 {
-  CURL* c = curl_easy_init();
-  VALUE url, rc;
-  VALUE opts = Qnil;
+  VALUE req, url, opts;
 
   rb_scan_args(argc, argv, "11", &url, &opts);
+  opts = (opts == Qnil ? rb_hash_new() : opts);
 
-  curl_easy_setopt(c, CURLOPT_CUSTOMREQUEST, "DELETE");
+  rb_hash_aset(opts, syms.method, syms.delete);
 
-  rc = request_perform(self, c, url, opts);
+  req = request_new(url, opts);
 
-  curl_easy_cleanup(c);
-
-  return rc;
+  return rb_funcall(req, rb_intern("run"), 0);
 }
-
 
 static int request_add_header(VALUE key, VALUE val, VALUE in)
 {
