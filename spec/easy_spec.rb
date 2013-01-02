@@ -3,7 +3,6 @@ require 'spec_server'
 require 'curly'
 require 'pry'
 
-TEST_URL = "http://localhost:4567"
 describe "Curly::Request" do
 
   before(:all) do
@@ -62,6 +61,7 @@ describe "Curly::Request" do
   it "handles serializing params without active support" do
     if params.respond_to?(:to_query)
       Hash.send(:remove_method, :to_query)
+      Object.send(:remove_method, :to_query)
     end
     resp = Curly::Request.get("#{TEST_URL}/params-test",
       :params => params

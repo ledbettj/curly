@@ -1,6 +1,8 @@
 require 'sinatra/base'
 require 'json'
 
+TEST_URL = "http://localhost:4567"
+
 class SpecServer < Sinatra::Base
   def self.start
     @pid = fork {
