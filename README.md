@@ -1,6 +1,7 @@
 # Curly
 
-A thin ruby binding for libcurl.
+
+A thin ruby binding for libcurl.  See the [RDoc documentation](http://rubydoc.info/github/ledbettj/curly/index) for more information.
 
 ## Installation
 
