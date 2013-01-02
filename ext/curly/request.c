@@ -28,6 +28,41 @@ static struct {
   VALUE timeout;
 } syms;
 
+struct curly_perform_args {
+  CURL*  c;
+  char*  body;
+  size_t body_len;
+  size_t body_capacity;
+  int    rc;
+};
+
+static struct curly_perform_args* args_alloc(struct curly_perform_args* arg)
+{
+  memset(arg, 0, sizeof(*arg));
+  arg->body          = malloc(4096);
+  arg->body_capacity = 4096;
+  arg->body_len      = 0;
+
+  return arg;
+}
+
+static void args_append_body(struct curly_perform_args* arg, void* data, size_t len)
+{
+  size_t new_size = arg->body_len + len;
+  if (new_size >= arg->body_capacity) {
+    arg->body = realloc(arg->body, 2 * new_size);
+  }
+
+  memcpy(&arg->body[arg->body_len], data, len);
+
+  arg->body_len = new_size;
+}
+
+static void args_free(struct curly_perform_args* arg)
+{
+  free(arg->body);
+}
+
 
 void Init_curly_request(VALUE curly_mod)
 {
@@ -45,22 +80,30 @@ void Init_curly_request(VALUE curly_mod)
   syms.timeout  = ID2SYM(rb_intern("timeout"));
 }
 
+static VALUE curl_easy_perform_wrapper(void* args)
+{
+  struct curly_perform_args* a = (struct curly_perform_args*)args;
+
+  a->rc = curl_easy_perform(a->c);
+
+  return Qnil;
+}
+
 static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
 {
-  int   rc;
   long  code;
   VALUE timeout, params, headers;
   VALUE resp = response_new();
-
+  struct curly_perform_args args;
   struct curl_slist* header_list = NULL;
 
   /* invoke header_callback when a header is received and pass `resp` */
   curl_easy_setopt(c, CURLOPT_HEADERFUNCTION, header_callback);
-  curl_easy_setopt(c, CURLOPT_WRITEHEADER,    resp);
+  curl_easy_setopt(c, CURLOPT_WRITEHEADER,    &args);
 
   /* invoke data_callback when a chunk of data is received and pass `resp` */
   curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, data_callback);
-  curl_easy_setopt(c, CURLOPT_WRITEDATA,     resp);
+  curl_easy_setopt(c, CURLOPT_WRITEDATA,     &args);
 
   /* handle headers, query string, timeout, etc. */
   if (TYPE(opts) == T_HASH) {
@@ -81,17 +124,23 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
 
   curl_easy_setopt(c, CURLOPT_URL, RSTRING_PTR(StringValue(url)));
 
-  rc = curl_easy_perform(c);
-  rb_iv_set(resp, "@curl_code", INT2NUM(rc));
+  args_alloc(&args);
+  args.c = c;
 
-  if (rc == CURLE_OK) {
+  rb_thread_blocking_region(curl_easy_perform_wrapper, &args, NULL, NULL);
+
+  rb_iv_set(resp, "@body", rb_str_new(args.body, args.body_len));
+  rb_iv_set(resp, "@curl_code", INT2NUM(args.rc));
+
+  if (args.rc == CURLE_OK) {
     curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &code);
     rb_iv_set(resp, "@status", INT2NUM(code));
   } else {
-    rb_iv_set(resp, "@curl_error", rb_str_new2(curl_easy_strerror(rc)));
+    rb_iv_set(resp, "@curl_error", rb_str_new2(curl_easy_strerror(args.rc)));
   }
 
   curl_slist_free_all(header_list);
+  args_free(&args);
 
   return resp;
 }
@@ -239,27 +288,25 @@ static struct curl_slist* request_build_headers(VALUE self, CURL* c, VALUE heade
 /* invoked by curl_easy_perform when a header is available */
 static size_t header_callback(void* buffer, size_t size, size_t count, void* self)
 {
-  VALUE hash = rb_iv_get((VALUE)self, "@headers");
-  VALUE str  = rb_str_new(buffer, size * count);
-  VALUE arr;
+  /* VALUE hash = rb_iv_get((VALUE)self, "@headers"); */
+  /* VALUE str  = rb_str_new(buffer, size * count); */
+  /* VALUE arr; */
 
-  /* make sure we have a string in the form 'Header: Value' then parse it. */
-  rb_funcall(str, rb_intern("chomp!"), 0);
-  arr = rb_funcall(str, rb_intern("split"), 2, rb_str_new2(": "), INT2NUM(2));
+  /* /\* make sure we have a string in the form 'Header: Value' then parse it. *\/ */
+  /* rb_funcall(str, rb_intern("chomp!"), 0); */
+  /* arr = rb_funcall(str, rb_intern("split"), 2, rb_str_new2(": "), INT2NUM(2)); */
 
-  if (rb_funcall(arr, rb_intern("length"), 0) == INT2NUM(2)) {
-    rb_hash_aset(hash, rb_ary_entry(arr, 0), rb_ary_entry(arr, 1));
-  }
+  /* if (rb_funcall(arr, rb_intern("length"), 0) == INT2NUM(2)) { */
+  /*   rb_hash_aset(hash, rb_ary_entry(arr, 0), rb_ary_entry(arr, 1)); */
+  /* } */
 
   return size * count;
 }
 
 /* invoked by curl_easy_perform when data is available */
-static size_t data_callback(void* buffer, size_t size, size_t count, void* self)
+static size_t data_callback(void* buffer, size_t size, size_t count, void* arg)
 {
-  VALUE body = rb_iv_get((VALUE)self, "@body");
-  rb_str_cat(body, buffer, size * count);
-
+  args_append_body(arg, buffer, size * count);
   return size * count;
 }
 
