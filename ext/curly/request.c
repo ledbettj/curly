@@ -96,7 +96,14 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
   return resp;
 }
 
-/* externally visable functions */
+/*
+ * call-seq:
+ *   Request.get(url, options = {}) -> Response
+ *
+ * Issues a HTTP GET to the specified +url+ using the provided
+ * +options+.
+ *
+ */
 static VALUE request_get(int argc, VALUE* argv, VALUE self)
 {
   CURL* c = curl_easy_init();
@@ -114,6 +121,14 @@ static VALUE request_get(int argc, VALUE* argv, VALUE self)
   return rc;
 }
 
+/*
+ * call-seq:
+ *   Request.post(url, options = {}) -> Response
+ *
+ * Issues a HTTP POST to the specified +url+ using the provided
+ * +options+.
+ *
+ */
 static VALUE request_post(int argc, VALUE* argv, VALUE self)
 {
   CURL* c = curl_easy_init();
@@ -137,6 +152,14 @@ static VALUE request_post(int argc, VALUE* argv, VALUE self)
   return rc;
 }
 
+/*
+ * call-seq:
+ *   Request.put(url, options = {}) -> Response
+ *
+ * Issues a HTTP PUT to the specified +url+ using the provided
+ * +options+.
+ *
+ */
 static VALUE request_put(int argc, VALUE* argv, VALUE self)
 {
   CURL* c = curl_easy_init();
@@ -161,7 +184,14 @@ static VALUE request_put(int argc, VALUE* argv, VALUE self)
   return rc;
 }
 
-/* externally visable functions */
+/*
+ * call-seq:
+ *   Request.delete(url, options = {}) -> Curly::Response
+ *
+ * Issues a HTTP DELETE to the specified +url+ using the provided
+ * +options+.
+ *
+ */
 static VALUE request_delete(int argc, VALUE* argv, VALUE self)
 {
   CURL* c = curl_easy_init();
@@ -178,7 +208,6 @@ static VALUE request_delete(int argc, VALUE* argv, VALUE self)
 
   return rc;
 }
-
 
 
 static int request_add_header(VALUE key, VALUE val, VALUE in)
