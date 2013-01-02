@@ -34,6 +34,8 @@ class SpecServer < Sinatra::Base
   get '/headers-test' do
     r = request.env.select{|k, v| k =~ /^HTTP_/ }
 
+    response.headers['X-Sample-Header']  = '123'
+    response.headers['X-Another-Header'] = '456'
     JSON.dump(r)
   end
 
