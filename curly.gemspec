@@ -17,7 +17,8 @@ Gem::Specification.new do |gem|
   gem.require_paths = ["lib"]
   gem.version       = Curly::VERSION
 
-  ['pry', 'rake', 'rake-compiler', 'rspec', 'sinatra', 'activesupport'].each do |d|
+  ['pry', 'rake', 'rake-compiler', 'rspec', 'sinatra', 'activesupport',
+   'rdoc'].each do |d|
     gem.add_development_dependency(d)
   end
 end
