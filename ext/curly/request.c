@@ -9,7 +9,7 @@ static VALUE request_run(VALUE self);
 /* internal helpers */
 static VALUE request_alloc(VALUE self);
 static VALUE request_perform(VALUE self, CURL* c, VALUE url);
-static struct curl_slist* request_build_headers(VALUE self, CURL* c, VALUE opts);
+static struct curl_slist* request_build_headers(VALUE self, CURL* c, VALUE headers);
 static int request_add_header(VALUE key, VALUE val, VALUE in);
 static VALUE build_query_string(VALUE params);
 
@@ -18,11 +18,6 @@ static size_t header_callback(void* buffer, size_t size, size_t count, void* sel
 static size_t data_callback  (void* buffer, size_t size, size_t count, void* self);
 
 static struct {
-  VALUE to_query;
-  VALUE params;
-  VALUE body;
-  VALUE headers;
-  VALUE timeout;
   VALUE method;
   VALUE get, post, put, delete;
 } syms;
@@ -33,24 +28,17 @@ void Init_curly_request(VALUE curly_mod)
 
   rb_define_method(request, "run", request_run, 0);
 
-  syms.to_query = ID2SYM(rb_intern("to_query"));
-  syms.params   = ID2SYM(rb_intern("params"));
-  syms.body     = ID2SYM(rb_intern("body"));
-  syms.headers  = ID2SYM(rb_intern("headers"));
-  syms.timeout  = ID2SYM(rb_intern("timeout"));
   syms.method   = ID2SYM(rb_intern("method"));
   syms.get      = ID2SYM(rb_intern("get"));
   syms.post     = ID2SYM(rb_intern("post"));
   syms.put      = ID2SYM(rb_intern("put"));
   syms.delete   = ID2SYM(rb_intern("delete"));
-
 }
 
 static VALUE request_run(VALUE self)
 {
   VALUE url    = rb_iv_get(self, "@url");
-  VALUE opts   = rb_iv_get(self, "@options");
-  VALUE method = rb_hash_aref(opts, syms.method);
+  VALUE method = rb_iv_get(self, "@method");
   CURL* c      = curl_easy_init();
 
   VALUE body, resp;
@@ -70,7 +58,7 @@ static VALUE request_run(VALUE self)
     /* TODO: rb_raise_whatever */
   }
 
-  if ((body = rb_hash_aref(opts, syms.body)) != Qnil) {
+  if ((body = rb_iv_get(self, "@body")) != Qnil) {
     /* TODO: handle case where `body` is a hash. */
     curl_easy_setopt(c, CURLOPT_POSTFIELDS, RSTRING_PTR(StringValue(body)));
   }
@@ -107,7 +95,7 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url)
   curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, data_callback);
   curl_easy_setopt(c, CURLOPT_WRITEDATA,     &n);
 
-  if ((headers = rb_iv_get(self, "@headers") != Qnil)) {
+  if ((headers = rb_iv_get(self, "@headers")) != Qnil) {
     header_list = request_build_headers(self, c, headers);
   }
 
