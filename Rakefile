@@ -17,3 +17,7 @@ Rake::RDocTask.new do |doc|
   doc.rdoc_files.include("lib/")
   doc.rdoc_files.include("ext/")
 end
+
+task "console" do
+  exec 'pry -r curly'
+end
