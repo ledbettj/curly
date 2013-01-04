@@ -24,13 +24,14 @@ class Curly::Request
   end
 
   attr_accessor :url
+  attr_accessor :body, :headers, :method, :params, :timeout
 
   def initialize(url, opts = {})
     @url     = url
-    @params  = opts[:params]
-    @timeout = opts[:timeout]
     @body    = opts[:body]
     @headers = opts[:headers]
     @method  = opts[:method]
+    @params  = opts[:params]
+    @timeout = opts[:timeout]
   end
 end

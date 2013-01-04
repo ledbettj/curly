@@ -43,7 +43,6 @@ static VALUE request_run(VALUE self)
 
   VALUE body, resp;
 
-
   method = (method == Qnil ? syms.get : rb_funcall(method, rb_intern("to_sym"), 0));
 
   if (method == syms.get) {
