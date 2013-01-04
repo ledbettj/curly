@@ -11,10 +11,7 @@ describe "Curly::Multi" do
 
     m = Curly::Multi.new
 
-    m.add(r1)
-    m.add(r2)
-
-    m.run
+    m.add(r1, r2).run
 
     r1.response.code.should eq(418)
 

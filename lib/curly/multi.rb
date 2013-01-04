@@ -4,8 +4,10 @@ class Curly::Multi
     @requests = []
   end
 
-  def add(request)
-    @requests.push(request)
+  def add(*requests)
+    @requests += requests
+
+    self
   end
 
   alias_method :enqueue, :add
