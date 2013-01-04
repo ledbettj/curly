@@ -8,7 +8,7 @@ static VALUE request_run(VALUE self);
 
 /* internal helpers */
 static VALUE request_alloc(VALUE self);
-static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts);
+static VALUE request_perform(VALUE self, CURL* c, VALUE url);
 static struct curl_slist* request_build_headers(VALUE self, CURL* c, VALUE opts);
 static int request_add_header(VALUE key, VALUE val, VALUE in);
 static VALUE build_query_string(VALUE params);
@@ -75,7 +75,7 @@ static VALUE request_run(VALUE self)
     curl_easy_setopt(c, CURLOPT_POSTFIELDS, RSTRING_PTR(StringValue(body)));
   }
 
-  resp = request_perform(self, c, url, opts);
+  resp = request_perform(self, c, url);
 
   curl_easy_cleanup(c);
 
@@ -91,7 +91,7 @@ static VALUE curl_easy_perform_wrapper(void* args)
   return Qnil;
 }
 
-static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
+static VALUE request_perform(VALUE self, CURL* c, VALUE url)
 {
   long  code;
   VALUE timeout, params, headers;
@@ -107,21 +107,17 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
   curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, data_callback);
   curl_easy_setopt(c, CURLOPT_WRITEDATA,     &n);
 
-  /* handle headers, query string, timeout, etc. */
-  if (TYPE(opts) == T_HASH) {
+  if ((headers = rb_iv_get(self, "@headers") != Qnil)) {
+    header_list = request_build_headers(self, c, headers);
+  }
 
-    if ((headers = rb_hash_aref(opts, syms.headers)) != Qnil) {
-      header_list = request_build_headers(self, c, headers);
-    }
+  if ((params = rb_iv_get(self, "@params")) != Qnil) {
+    url = rb_str_plus(url, rb_str_new2("?"));
+    url = rb_str_append(url, build_query_string(params));
+  }
 
-    if ((params = rb_hash_aref(opts, syms.params)) != Qnil) {
-      url = rb_str_plus(url, rb_str_new2("?"));
-      url = rb_str_append(url, build_query_string(params));
-    }
-
-    if ((timeout = rb_hash_aref(opts, syms.timeout)) != Qnil) {
-      curl_easy_setopt(c, CURLOPT_TIMEOUT_MS, NUM2LONG(timeout));
-    }
+  if ((timeout = rb_iv_get(self, "@timeout")) != Qnil) {
+    curl_easy_setopt(c, CURLOPT_TIMEOUT_MS, NUM2LONG(timeout));
   }
 
   curl_easy_setopt(c, CURLOPT_URL, RSTRING_PTR(StringValue(url)));

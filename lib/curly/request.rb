@@ -27,6 +27,9 @@ class Curly::Request
 
   def initialize(url, opts = {})
     @url     = url
-    @options = opts;
+    @params  = opts[:params]
+    @timout  = opts[:timeout]
+    @body    = opts[:body]
+    @headers = opts[:headers]
   end
 end
