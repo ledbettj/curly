@@ -41,7 +41,7 @@ void native_curly_add_header(native_curly* n, const char* hdr)
 }
 
 void native_curly_prepare(native_curly* n, const char* url, long timeout,
-                          const char* body)
+                          const char* body, int follow_location)
 {
   /* invoke header_callback when a header is received and pass `resp` */
   curl_easy_setopt(n->handle, CURLOPT_HEADERFUNCTION, header_callback);
@@ -53,6 +53,8 @@ void native_curly_prepare(native_curly* n, const char* url, long timeout,
 
   curl_easy_setopt(n->handle, CURLOPT_URL, url);
   curl_easy_setopt(n->handle, CURLOPT_HTTPHEADER, n->req_headers);
+
+  curl_easy_setopt(n->handle, CURLOPT_FOLLOWLOCATION, follow_location);
 
   if (timeout > 0) {
     curl_easy_setopt(n->handle, CURLOPT_TIMEOUT_MS, timeout);

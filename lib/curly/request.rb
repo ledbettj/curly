@@ -26,17 +26,19 @@ class Curly::Request
   end
 
   attr_accessor :url
-  attr_accessor :body, :headers, :method, :params, :timeout
+  attr_accessor :body, :follow_location, :headers, :method, :params, :timeout
 
   attr_reader :response
 
   def initialize(url, opts = {})
-    @url     = url
-    @body    = opts[:body]
-    @headers = opts[:headers]
-    @method  = opts[:method]
-    @params  = opts[:params]
-    @timeout = opts[:timeout]
+    @url              = url
+    @body             = opts[:body]
+    @follow_location  = opts[:follow_location] == false ? false : true
+    @headers          = opts[:headers]
+    @method           = opts[:method]
+    @params           = opts[:params]
+    @timeout          = opts[:timeout]
+
   end
 
   def effective_url

@@ -145,4 +145,16 @@ describe "Curly::Request" do
     resp.headers['Set-Cookie'].length.should eq(2)
   end
 
+  it "follows redirects by default" do
+    resp = Curly::Request.get("#{TEST_URL}/redirect-test")
+
+    resp.status.should eq(200)
+  end
+
+  it "ignores redirects when requested" do
+    resp = Curly::Request.get("#{TEST_URL}/redirect-test", :follow_location => false)
+
+    resp.status.should eq(301)
+  end
+
 end

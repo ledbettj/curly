@@ -60,4 +60,13 @@ class SpecServer < Sinatra::Base
     sleep 3
     "done"
   end
+
+  get '/redirect-test' do
+    response.headers['Location'] = '/redirect-test-2'
+    status 301
+  end
+
+  get '/redirect-test-2' do
+    status 200
+  end
 end
