@@ -5,14 +5,6 @@ require 'pry'
 
 describe "Curly::Request" do
 
-  before(:all) do
-    SpecServer.start
-  end
-
-  after(:all) do
-    SpecServer.stop
-  end
-
   let(:params) do
     {
       'x' => 'a',
@@ -65,6 +57,15 @@ describe "Curly::Request" do
     end
     resp = Curly::Request.get("#{TEST_URL}/params-test",
       :params => params
+    )
+
+    JSON.parse(resp.body).should eq(params)
+  end
+
+  it "handles combination of params in URL and passed in" do
+
+    resp = Curly::Request.get("#{TEST_URL}/params-test?x=a&test=hello+world",
+      :params => { 'y' => 'b'}
     )
 
     JSON.parse(resp.body).should eq(params)
@@ -131,6 +132,12 @@ describe "Curly::Request" do
   it "can DELETE" do
     resp = Curly::Request.delete("#{TEST_URL}/delete-test")
     resp.status.should eq(200)
+  end
+
+  it "reads headers set by the server" do
+    resp = Curly::Request.get("#{TEST_URL}/headers-test")
+    resp.headers['X-Sample-Header'].should eq('123')
+    resp.headers['X-Another-Header'].should eq('456')
   end
 
 end
