@@ -2,6 +2,7 @@
 #include <curl/curl.h>
 #include "request.h"
 #include "response.h"
+#include "native.h"
 
 /* Request member functions */
 static VALUE request_get   (int argc, VALUE* argv, VALUE self);
@@ -28,77 +29,6 @@ static struct {
   VALUE timeout;
 } syms;
 
-struct curly_perform_args {
-  CURL*  c;
-  char*  body;
-  size_t body_len;
-  size_t body_capacity;
-
-  char** headers;
-  size_t headers_len;
-  size_t headers_capacity;
-  int    rc;
-};
-
-#define INITIAL_BODY_CAPACITY 4096
-#define INITIAL_HEAD_CAPACITY 16
-
-static struct curly_perform_args* args_alloc(struct curly_perform_args* arg)
-{
-  memset(arg, 0, sizeof(*arg));
-
-  arg->body_capacity = INITIAL_BODY_CAPACITY;
-  arg->body          = malloc(INITIAL_BODY_CAPACITY);
-  arg->body_len      = 0;
-
-  arg->headers_capacity = INITIAL_HEAD_CAPACITY;
-  arg->headers          = malloc(sizeof(char*) * INITIAL_HEAD_CAPACITY);
-  arg->headers_len      = 0;
-
-  return arg;
-}
-
-static void args_append_body(struct curly_perform_args* arg, void* data, size_t len)
-{
-  size_t new_size = arg->body_len + len;
-  if (new_size >= arg->body_capacity) {
-    arg->body_capacity = 2 * new_size;
-    arg->body = realloc(arg->body, arg->body_capacity);
-  }
-
-  memcpy(&arg->body[arg->body_len], data, len);
-
-  arg->body_len = new_size;
-}
-
-static void args_append_header(struct curly_perform_args* arg, void* data, size_t len)
-{
-  size_t new_size = arg->headers_len + 1;
-  char* next;
-  if (new_size >= arg->headers_capacity) {
-    arg->headers_capacity = 2 * new_size;
-    arg->headers = realloc(arg->headers, arg->headers_capacity * sizeof(char*));
-  }
-
-  next = malloc(len + 1);
-  memcpy(next, data, len);
-  next[len] = '\0';
-
-  arg->headers[arg->headers_len++] = next;
-}
-
-static void args_free(struct curly_perform_args* arg)
-{
-  size_t i;
-
-  for(i = 0; i < arg->headers_len; ++i) {
-    free(arg->headers[i]);
-  }
-
-  free(arg->headers);
-  free(arg->body);
-}
-
 void Init_curly_request(VALUE curly_mod)
 {
   VALUE request = rb_define_class_under(curly_mod, "Request", rb_cObject);
@@ -117,28 +47,11 @@ void Init_curly_request(VALUE curly_mod)
 
 static VALUE curl_easy_perform_wrapper(void* args)
 {
-  struct curly_perform_args* a = (struct curly_perform_args*)args;
+  native_curly* n = (native_curly*)args;
 
-  a->rc = curl_easy_perform(a->c);
+  n->curl_rc = curl_easy_perform(n->handle);
 
   return Qnil;
-}
-
-static void response_store_headers(VALUE resp, struct curly_perform_args* args)
-{
-  VALUE hash = rb_iv_get(resp, "@headers");
-  VALUE str, arr;
-  size_t i;
-
-  for(i = 0; i < args->headers_len; ++i) {
-    str = rb_str_new2(args->headers[i]);
-    /* make sure we have a string in the form 'Header: Value' then parse it. */
-    rb_funcall(str, rb_intern("chomp!"), 0);
-    arr = rb_funcall(str, rb_intern("split"), 2, rb_str_new2(": "), INT2NUM(2));
-    if (rb_funcall(arr, rb_intern("length"), 0) == INT2NUM(2)) {
-      rb_hash_aset(hash, rb_ary_entry(arr, 0), rb_ary_entry(arr, 1));
-    }
-  }
 }
 
 static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
@@ -146,16 +59,16 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
   long  code;
   VALUE timeout, params, headers;
   VALUE resp = response_new();
-  struct curly_perform_args args;
+  native_curly n;
   struct curl_slist* header_list = NULL;
 
   /* invoke header_callback when a header is received and pass `resp` */
   curl_easy_setopt(c, CURLOPT_HEADERFUNCTION, header_callback);
-  curl_easy_setopt(c, CURLOPT_WRITEHEADER,    &args);
+  curl_easy_setopt(c, CURLOPT_WRITEHEADER,    &n);
 
   /* invoke data_callback when a chunk of data is received and pass `resp` */
   curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, data_callback);
-  curl_easy_setopt(c, CURLOPT_WRITEDATA,     &args);
+  curl_easy_setopt(c, CURLOPT_WRITEDATA,     &n);
 
   /* handle headers, query string, timeout, etc. */
   if (TYPE(opts) == T_HASH) {
@@ -176,25 +89,22 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
 
   curl_easy_setopt(c, CURLOPT_URL, RSTRING_PTR(StringValue(url)));
 
-  args_alloc(&args);
-  args.c = c;
+  native_curly_alloc(&n, c);
 
-  rb_thread_blocking_region(curl_easy_perform_wrapper, &args, NULL, NULL);
+  rb_thread_blocking_region(curl_easy_perform_wrapper, &n, NULL, NULL);
 
-  rb_iv_set(resp, "@body", rb_str_new(args.body, args.body_len));
-  rb_iv_set(resp, "@curl_code", INT2NUM(args.rc));
+  rb_iv_set(resp, "@body", rb_str_new(n.body.value, n.body.length));
+  rb_iv_set(resp, "@curl_code", INT2NUM(n.curl_rc));
 
-  response_store_headers(resp, &args);
-
-  if (args.rc == CURLE_OK) {
+  if (n.curl_rc == CURLE_OK) {
     curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &code);
     rb_iv_set(resp, "@status", INT2NUM(code));
   } else {
-    rb_iv_set(resp, "@curl_error", rb_str_new2(curl_easy_strerror(args.rc)));
+    rb_iv_set(resp, "@curl_error", rb_str_new2(curl_easy_strerror(n.curl_rc)));
   }
 
   curl_slist_free_all(header_list);
-  args_free(&args);
+  native_curly_free(&n);
 
   return resp;
 }
@@ -342,7 +252,8 @@ static struct curl_slist* request_build_headers(VALUE self, CURL* c, VALUE heade
 /* invoked by curl_easy_perform when a header is available */
 static size_t header_callback(void* buffer, size_t size, size_t count, void* arg)
 {
-  args_append_header(arg, buffer, size* count);
+  native_curly* n = (native_curly*)arg;
+  exstr_append(&n->head, buffer, size * count);
 
   return size * count;
 }
@@ -350,7 +261,9 @@ static size_t header_callback(void* buffer, size_t size, size_t count, void* arg
 /* invoked by curl_easy_perform when data is available */
 static size_t data_callback(void* buffer, size_t size, size_t count, void* arg)
 {
-  args_append_body(arg, buffer, size * count);
+  native_curly* n = (native_curly*)arg;
+  exstr_append(&n->body, buffer, size * count);
+
   return size * count;
 }
 
