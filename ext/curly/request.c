@@ -52,41 +52,46 @@ static VALUE unlock_vm_wrapper(void* arg)
   return Qnil;
 }
 
-static VALUE request_run(VALUE self)
+void request_prepare(VALUE self, native_curly* n)
 {
   VALUE url     = rb_funcall(self, rb_intern("effective_url"), 0);
   VALUE method  = rb_iv_get(self, "@method");
   VALUE body    = rb_iv_get(self, "@body");
   VALUE timeout = rb_iv_get(self, "@timeout");
   VALUE headers = rb_iv_get(self, "@headers");
-  VALUE resp    = response_new();
-  long  code;
-  native_curly n;
-
-  native_curly_alloc(&n);
 
   method = (method == Qnil ? syms.get : rb_funcall(method, rb_intern("to_sym"), 0));
 
   if (method == syms.get) {
-    curl_easy_setopt(n.handle, CURLOPT_HTTPGET, 1L);
+    curl_easy_setopt(n->handle, CURLOPT_HTTPGET, 1L);
   } else if (method == syms.post) {
-    curl_easy_setopt(n.handle, CURLOPT_HTTPPOST, NULL);
+    curl_easy_setopt(n->handle, CURLOPT_HTTPPOST, NULL);
   } else if (method == syms.put) {
-    curl_easy_setopt(n.handle, CURLOPT_CUSTOMREQUEST, "PUT");
+    curl_easy_setopt(n->handle, CURLOPT_CUSTOMREQUEST, "PUT");
   } else if (method == syms.delete) {
-    curl_easy_setopt(n.handle, CURLOPT_CUSTOMREQUEST, "DELETE");
+    curl_easy_setopt(n->handle, CURLOPT_CUSTOMREQUEST, "DELETE");
   } else {
     /* TODO: rb_raise_whatever */
   }
 
   if (headers != Qnil) {
-    rb_hash_foreach(headers, request_add_header, (VALUE)&n);
+    rb_hash_foreach(headers, request_add_header, (VALUE)n);
   }
 
-  native_curly_prepare(&n, RSTRING_PTR(url),
+  native_curly_prepare(n, RSTRING_PTR(url),
                        timeout != Qnil ? NUM2LONG(timeout) : -1,
                        body    != Qnil ? RSTRING_PTR(StringValue(body)) : NULL
                        );
+}
+
+static VALUE request_run(VALUE self)
+{
+  native_curly n;
+  VALUE resp    = response_new();
+  long  code;
+
+  native_curly_alloc(&n);
+  request_prepare(self, &n);
 
   rb_thread_blocking_region(unlock_vm_wrapper, &n, NULL, NULL);
 
