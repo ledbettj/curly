@@ -143,8 +143,6 @@ describe "Curly::Request" do
   it "handles multiple cookies in header" do
     resp = Curly::Request.get("#{TEST_URL}/cookie-test")
     resp.headers['Set-Cookie'].length.should eq(2)
-
-    puts resp.headers.inspect
   end
 
 end
