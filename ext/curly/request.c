@@ -108,6 +108,7 @@ static VALUE request_run(VALUE self)
 
   native_curly_free(&n);
 
+  rb_iv_set(self, "@response", resp);
   return resp;
 }
 
