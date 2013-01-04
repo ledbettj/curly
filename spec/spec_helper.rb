@@ -15,3 +15,7 @@ RSpec.configure do |config|
   #     --seed 1234
   config.order = 'random'
 end
+
+require 'spec_server'
+SpecServer.start
+sleep 2

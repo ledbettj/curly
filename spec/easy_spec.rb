@@ -5,14 +5,6 @@ require 'pry'
 
 describe "Curly::Request" do
 
-  before(:all) do
-    SpecServer.start
-  end
-
-  after(:all) do
-    SpecServer.stop
-  end
-
   let(:params) do
     {
       'x' => 'a',

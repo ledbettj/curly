@@ -5,14 +5,6 @@ require 'pry'
 
 describe "Curly::Multi" do
 
-  before(:all) do
-    SpecServer.start
-  end
-
-  after(:all) do
-    SpecServer.stop
-  end
-
   it "works with multiple requests" do
     r1 = Curly::Request.new("#{TEST_URL}/status-test")
     r2 = Curly::Request.new("#{TEST_URL}/body-test")

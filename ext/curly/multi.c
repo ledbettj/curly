@@ -14,30 +14,16 @@ void Init_curly_multi(VALUE curly)
   rb_define_method(multi, "run", multi_run, 0);
 }
 
-VALUE multi_run(VALUE self)
+static VALUE multi_run_unblocked(void* m)
 {
-  CURLM* c = curl_multi_init();
-  VALUE  requests = rb_iv_get(self, "@requests");
-  size_t req_len = RARRAY_LEN(requests);
-  VALUE* req_ptr = RARRAY_PTR(requests);
-  size_t i;
-  native_curly* n = malloc(sizeof(native_curly) * req_len);
-  VALUE resp;
-
+  CURLM* c = (CURLM*)m;
   int pending = 0;
   struct timeval timeout;
   int rc;
   fd_set fr, fw, fx;
   int maxfd;
-  long curl_timeout, code;
+  long curl_timeout;
 
-  for(i = 0; i < req_len; ++i) {
-    native_curly_alloc(&n[i]);
-    request_prepare(req_ptr[i], &n[i]);
-    curl_multi_add_handle(c, n[i].handle);
-  }
-
-  /* do something here */
   curl_multi_perform(c, &pending);
 
   do {
@@ -59,13 +45,33 @@ VALUE multi_run(VALUE self)
     }
 
     curl_multi_fdset(c, &fr, &fw, &fx, &maxfd);
-
     rc = select(maxfd, &fr, &fw, &fx, &timeout);
 
     curl_multi_perform(c, &pending);
 
   } while (pending);
 
+  return Qnil;
+}
+
+VALUE multi_run(VALUE self)
+{
+  CURLM* c = curl_multi_init();
+  VALUE  requests = rb_iv_get(self, "@requests");
+  size_t req_len = RARRAY_LEN(requests);
+  VALUE* req_ptr = RARRAY_PTR(requests);
+  size_t i;
+  native_curly* n = malloc(sizeof(native_curly) * req_len);
+  VALUE resp;
+  long code;
+
+  for(i = 0; i < req_len; ++i) {
+    native_curly_alloc(&n[i]);
+    request_prepare(req_ptr[i], &n[i]);
+    curl_multi_add_handle(c, n[i].handle);
+  }
+
+  rb_thread_blocking_region(multi_run_unblocked, c, NULL, NULL);
 
   /* cleanup */
   for(i = 0; i < req_len; ++i) {
