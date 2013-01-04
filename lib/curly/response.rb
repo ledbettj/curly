@@ -12,6 +12,8 @@ class Curly::Response
     @status = 0
   end
 
+  # returns +true+ if the http status code returned by the server falls within
+  # the 2xx range, +false+ otherwise.
   def success?
     @status >= 200 && @status < 300
   end
