@@ -133,4 +133,10 @@ describe "Curly::Request" do
     resp.status.should eq(200)
   end
 
+  it "reads headers set by the server" do
+    resp = Curly::Request.get("#{TEST_URL}/headers-test")
+    resp.headers['X-Sample-Header'].should eq('123')
+    resp.headers['X-Another-Header'].should eq('456')
+  end
+
 end
