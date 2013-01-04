@@ -40,16 +40,20 @@ struct curly_perform_args {
   int    rc;
 };
 
+#define INITIAL_BODY_CAPACITY 4096
+#define INITIAL_HEAD_CAPACITY 16
+
 static struct curly_perform_args* args_alloc(struct curly_perform_args* arg)
 {
   memset(arg, 0, sizeof(*arg));
-  arg->body          = malloc(4096);
-  arg->body_capacity = 4096;
+
+  arg->body_capacity = INITIAL_BODY_CAPACITY;
+  arg->body          = malloc(INITIAL_BODY_CAPACITY);
   arg->body_len      = 0;
 
-  arg->headers          = malloc(sizeof(char*) * 16);
+  arg->headers_capacity = INITIAL_HEAD_CAPACITY;
+  arg->headers          = malloc(sizeof(char*) * INITIAL_HEAD_CAPACITY);
   arg->headers_len      = 0;
-  arg->headers_capacity = 16;
 
   return arg;
 }
