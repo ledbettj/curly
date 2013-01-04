@@ -2,17 +2,21 @@ require 'cgi'
 
 # This class converts a hash of http request parameters into a query string of
 # the form key=value&key2=value2&key3=value3... in a format compatible to the
-# +Object.to_query+ method provided by ActiveSupport.  This class will only be
-# used if Curly detects that ActiveSupport's +to_query+ is not present.
+# +Object.to_query+ method provided by ActiveSupport.
+# If ActiveSupport +to_query+ is found that will be used instead.
 module Curly::Parameterize
   class << self
 
     # Convert the given +params+ hash into a URLencoded query string.
     def query_string(params)
-      params.collect { |key, value| to_param(key, value) }.sort * '&'
+      params.respond_to?(:to_query) ? params.to_query : build_query_string(params)
     end
 
     private
+
+    def build_query_string(params)
+      params.collect { |key, value| to_param(key, value) }.sort * '&'
+    end
 
     def to_param(key, value)
       if value.instance_of?(Array)

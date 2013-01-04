@@ -4,19 +4,12 @@
 #include "response.h"
 #include "native.h"
 
-/* Request member functions */
-static VALUE request_get   (int argc, VALUE* argv, VALUE self);
-static VALUE request_post  (int argc, VALUE* argv, VALUE self);
-static VALUE request_put   (int argc, VALUE* argv, VALUE self);
-static VALUE request_delete(int argc, VALUE* argv, VALUE self);
-
-static VALUE request_initialize(int argc, VALUE* argv, VALUE self);
 static VALUE request_run(VALUE self);
 
 /* internal helpers */
 static VALUE request_alloc(VALUE self);
-static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts);
-static struct curl_slist* request_build_headers(VALUE self, CURL* c, VALUE opts);
+static VALUE request_perform(VALUE self, CURL* c, VALUE url);
+static struct curl_slist* build_headers(CURL* c, VALUE headers);
 static int request_add_header(VALUE key, VALUE val, VALUE in);
 static VALUE build_query_string(VALUE params);
 
@@ -25,11 +18,6 @@ static size_t header_callback(void* buffer, size_t size, size_t count, void* sel
 static size_t data_callback  (void* buffer, size_t size, size_t count, void* self);
 
 static struct {
-  VALUE to_query;
-  VALUE params;
-  VALUE body;
-  VALUE headers;
-  VALUE timeout;
   VALUE method;
   VALUE get, post, put, delete;
 } syms;
@@ -38,50 +26,22 @@ void Init_curly_request(VALUE curly_mod)
 {
   VALUE request = rb_define_class_under(curly_mod, "Request", rb_cObject);
 
-  rb_define_singleton_method(request, "get",    request_get,    -1);
-  rb_define_singleton_method(request, "post",   request_post,   -1);
-  rb_define_singleton_method(request, "put",    request_put,    -1);
-  rb_define_singleton_method(request, "delete", request_delete, -1);
+  rb_define_method(request, "run", request_run, 0);
 
-  rb_define_method(request, "initialize", request_initialize, -1);
-  rb_define_method(request, "run",        request_run,         0);
-
-  syms.to_query = ID2SYM(rb_intern("to_query"));
-  syms.params   = ID2SYM(rb_intern("params"));
-  syms.body     = ID2SYM(rb_intern("body"));
-  syms.headers  = ID2SYM(rb_intern("headers"));
-  syms.timeout  = ID2SYM(rb_intern("timeout"));
   syms.method   = ID2SYM(rb_intern("method"));
   syms.get      = ID2SYM(rb_intern("get"));
   syms.post     = ID2SYM(rb_intern("post"));
   syms.put      = ID2SYM(rb_intern("put"));
   syms.delete   = ID2SYM(rb_intern("delete"));
-
-}
-
-
-static VALUE request_initialize(int argc, VALUE* argv, VALUE self)
-{
-  VALUE url, opts;
-
-  rb_scan_args(argc, argv, "11", &url, &opts);
-  opts = (opts == Qnil ? rb_hash_new() : opts);
-
-  rb_iv_set(self, "@url",     url);
-  rb_iv_set(self, "@options", opts);
-
-  return self;
 }
 
 static VALUE request_run(VALUE self)
 {
   VALUE url    = rb_iv_get(self, "@url");
-  VALUE opts   = rb_iv_get(self, "@options");
-  VALUE method = rb_hash_aref(opts, syms.method);
+  VALUE method = rb_iv_get(self, "@method");
   CURL* c      = curl_easy_init();
 
   VALUE body, resp;
-
 
   method = (method == Qnil ? syms.get : rb_funcall(method, rb_intern("to_sym"), 0));
 
@@ -97,28 +57,16 @@ static VALUE request_run(VALUE self)
     /* TODO: rb_raise_whatever */
   }
 
-  if ((body = rb_hash_aref(opts, syms.body)) != Qnil) {
+  if ((body = rb_iv_get(self, "@body")) != Qnil) {
     /* TODO: handle case where `body` is a hash. */
     curl_easy_setopt(c, CURLOPT_POSTFIELDS, RSTRING_PTR(StringValue(body)));
   }
 
-  resp = request_perform(self, c, url, opts);
+  resp = request_perform(self, c, url);
 
   curl_easy_cleanup(c);
 
   return resp;
-}
-
-static VALUE request_new(VALUE url, VALUE opts)
-{
-  VALUE args[2] = { url, opts };
-
-  return rb_class_new_instance(2, args,
-           rb_const_get(
-             rb_const_get(rb_cObject, rb_intern("Curly")),
-             rb_intern("Request")
-           )
-         );
 }
 
 static VALUE curl_easy_perform_wrapper(void* args)
@@ -130,7 +78,7 @@ static VALUE curl_easy_perform_wrapper(void* args)
   return Qnil;
 }
 
-static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
+static VALUE request_perform(VALUE self, CURL* c, VALUE url)
 {
   long  code;
   VALUE timeout, params, headers;
@@ -146,21 +94,17 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
   curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, data_callback);
   curl_easy_setopt(c, CURLOPT_WRITEDATA,     &n);
 
-  /* handle headers, query string, timeout, etc. */
-  if (TYPE(opts) == T_HASH) {
+  if ((headers = rb_iv_get(self, "@headers")) != Qnil) {
+    header_list = build_headers(c, headers);
+  }
 
-    if ((headers = rb_hash_aref(opts, syms.headers)) != Qnil) {
-      header_list = request_build_headers(self, c, headers);
-    }
+  if ((params = rb_iv_get(self, "@params")) != Qnil) {
+    url = rb_str_plus(url, rb_str_new2("?"));
+    url = rb_str_append(url, build_query_string(params));
+  }
 
-    if ((params = rb_hash_aref(opts, syms.params)) != Qnil) {
-      url = rb_str_plus(url, rb_str_new2("?"));
-      url = rb_str_append(url, build_query_string(params));
-    }
-
-    if ((timeout = rb_hash_aref(opts, syms.timeout)) != Qnil) {
-      curl_easy_setopt(c, CURLOPT_TIMEOUT_MS, NUM2LONG(timeout));
-    }
+  if ((timeout = rb_iv_get(self, "@timeout")) != Qnil) {
+    curl_easy_setopt(c, CURLOPT_TIMEOUT_MS, NUM2LONG(timeout));
   }
 
   curl_easy_setopt(c, CURLOPT_URL, RSTRING_PTR(StringValue(url)));
@@ -170,6 +114,7 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
   rb_thread_blocking_region(curl_easy_perform_wrapper, &n, NULL, NULL);
 
   rb_iv_set(resp, "@body", rb_str_new(n.body.value, n.body.length));
+  rb_iv_set(resp, "@head", rb_str_new(n.head.value, n.head.length));
   rb_iv_set(resp, "@curl_code", INT2NUM(n.curl_rc));
 
   if (n.curl_rc == CURLE_OK) {
@@ -183,94 +128,6 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
   native_curly_free(&n);
 
   return resp;
-}
-
-/*
- * call-seq:
- *   Request.get(url, options = {}) -> Response
- *
- * Issues a HTTP GET to the specified +url+ using the provided
- * +options+.
- *
- */
-static VALUE request_get(int argc, VALUE* argv, VALUE self)
-{
-  VALUE req, url, opts;
-
-  rb_scan_args(argc, argv, "11", &url, &opts);
-  opts = (opts == Qnil ? rb_hash_new() : opts);
-
-  rb_hash_aset(opts, syms.method, syms.get);
-
-  req = request_new(url, opts);
-
-  return rb_funcall(req, rb_intern("run"), 0);
-}
-
-/*
- * call-seq:
- *   Request.post(url, options = {}) -> Response
- *
- * Issues a HTTP POST to the specified +url+ using the provided
- * +options+.
- *
- */
-static VALUE request_post(int argc, VALUE* argv, VALUE self)
-{
-  VALUE req, url, opts;
-
-  rb_scan_args(argc, argv, "11", &url, &opts);
-  opts = (opts == Qnil ? rb_hash_new() : opts);
-
-  rb_hash_aset(opts, syms.method, syms.post);
-
-  req = request_new(url, opts);
-
-  return rb_funcall(req, rb_intern("run"), 0);
-}
-
-/*
- * call-seq:
- *   Request.put(url, options = {}) -> Response
- *
- * Issues a HTTP PUT to the specified +url+ using the provided
- * +options+.
- *
- */
-static VALUE request_put(int argc, VALUE* argv, VALUE self)
-{
-  VALUE req, url, opts;
-
-  rb_scan_args(argc, argv, "11", &url, &opts);
-  opts = (opts == Qnil ? rb_hash_new() : opts);
-
-  rb_hash_aset(opts, syms.method, syms.put);
-
-  req = request_new(url, opts);
-
-  return rb_funcall(req, rb_intern("run"), 0);
-}
-
-/*
- * call-seq:
- *   Request.delete(url, options = {}) -> Curly::Response
- *
- * Issues a HTTP DELETE to the specified +url+ using the provided
- * +options+.
- *
- */
-static VALUE request_delete(int argc, VALUE* argv, VALUE self)
-{
-  VALUE req, url, opts;
-
-  rb_scan_args(argc, argv, "11", &url, &opts);
-  opts = (opts == Qnil ? rb_hash_new() : opts);
-
-  rb_hash_aset(opts, syms.method, syms.delete);
-
-  req = request_new(url, opts);
-
-  return rb_funcall(req, rb_intern("run"), 0);
 }
 
 static int request_add_header(VALUE key, VALUE val, VALUE in)
@@ -287,7 +144,7 @@ static int request_add_header(VALUE key, VALUE val, VALUE in)
   return ST_CONTINUE;
 }
 
-static struct curl_slist* request_build_headers(VALUE self, CURL* c, VALUE headers)
+static struct curl_slist* build_headers(CURL* c, VALUE headers)
 {
   struct curl_slist* list = NULL;
 
@@ -322,17 +179,7 @@ static size_t data_callback(void* buffer, size_t size, size_t count, void* arg)
  * our own compatible implementation */
 static VALUE build_query_string(VALUE params)
 {
-  VALUE paramize;
-  VALUE has_to_query = rb_funcall(params, rb_intern("respond_to?"), 1,
-                                  syms.to_query);
-
-  if (has_to_query == Qtrue) {
-    /* use active support */
-    return rb_funcall(params, rb_intern("to_query"), 0);
-  } else {
-    paramize = rb_const_get(rb_const_get(rb_cObject, rb_intern("Curly")),
-                            rb_intern("Parameterize"));
-    /* use our own version */
-    return rb_funcall(paramize, rb_intern("query_string"), 1, params);
-  }
+  VALUE paramize = rb_const_get(rb_const_get(rb_cObject, rb_intern("Curly")),
+                                rb_intern("Parameterize"));
+  return rb_funcall(paramize, rb_intern("query_string"), 1, params);
 }
