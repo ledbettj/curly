@@ -5,6 +5,9 @@ TEST_URL = "http://localhost:4567"
 
 class SpecServer < Sinatra::Base
   def self.start
+    # Oh my god webrick/sinatra shut up I'm trying to run specs here.
+    $stderr.reopen('/dev/null', 'w')
+
     Thread.new { SpecServer.run! }
     sleep 2
   end
