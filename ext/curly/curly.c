@@ -1,6 +1,7 @@
 #include <ruby.h>
 #include "request.h"
 #include "response.h"
+#include "multi.h"
 
 void Init_curly(void)
 {
@@ -8,4 +9,5 @@ void Init_curly(void)
 
   Init_curly_response(curly_mod);
   Init_curly_request(curly_mod);
+  Init_curly_multi(curly_mod);
 }

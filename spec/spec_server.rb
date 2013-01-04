@@ -5,16 +5,8 @@ TEST_URL = "http://localhost:4567"
 
 class SpecServer < Sinatra::Base
   def self.start
-    @pid = fork {
-      $stdout.reopen("/dev/null")
-      $stderr.reopen("/dev/null")
-      SpecServer.run!
-    }
+    Thread.new { SpecServer.run! }
     sleep 2
-  end
-
-  def self.stop
-    Process.kill("SIGTERM", @pid)
   end
 
   get '/status-test' do
@@ -34,6 +26,8 @@ class SpecServer < Sinatra::Base
   get '/headers-test' do
     r = request.env.select{|k, v| k =~ /^HTTP_/ }
 
+    response.headers['X-Sample-Header']  = '123'
+    response.headers['X-Another-Header'] = '456'
     JSON.dump(r)
   end
 
