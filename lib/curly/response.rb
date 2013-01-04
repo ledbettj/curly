@@ -21,7 +21,17 @@ class Curly::Response
   def headers
     @headers ||= @head.split(/\r\n/).each_with_object({}) do |line, h|
       key, value = line.split(': ', 2)
-      h[key] = value if value
+      next unless value
+
+      # There may be multiple headers with the same key and different values.
+      # for example, Set-Cookie.
+      if !h.has_key?(key)
+        h[key] = value
+      elsif h[key].instance_of?(Array)
+        h[key].push(value)
+      else
+        h[key] = [h[key], value]
+      end
     end
   end
 

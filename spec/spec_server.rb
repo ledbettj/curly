@@ -28,7 +28,13 @@ class SpecServer < Sinatra::Base
 
     response.headers['X-Sample-Header']  = '123'
     response.headers['X-Another-Header'] = '456'
+
     JSON.dump(r)
+  end
+
+  get '/cookie-test' do
+    response.set_cookie('cookie-1', :value => 'abc')
+    response.set_cookie('cookie-2', :value => 'def')
   end
 
   post '/post-test' do
