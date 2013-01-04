@@ -9,7 +9,7 @@ static VALUE request_run(VALUE self);
 /* internal helpers */
 static VALUE request_alloc(VALUE self);
 static VALUE request_perform(VALUE self, CURL* c, VALUE url);
-static struct curl_slist* request_build_headers(VALUE self, CURL* c, VALUE headers);
+static struct curl_slist* build_headers(CURL* c, VALUE headers);
 static int request_add_header(VALUE key, VALUE val, VALUE in);
 static VALUE build_query_string(VALUE params);
 
@@ -96,7 +96,7 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url)
   curl_easy_setopt(c, CURLOPT_WRITEDATA,     &n);
 
   if ((headers = rb_iv_get(self, "@headers")) != Qnil) {
-    header_list = request_build_headers(self, c, headers);
+    header_list = build_headers(c, headers);
   }
 
   if ((params = rb_iv_get(self, "@params")) != Qnil) {
@@ -145,7 +145,7 @@ static int request_add_header(VALUE key, VALUE val, VALUE in)
   return ST_CONTINUE;
 }
 
-static struct curl_slist* request_build_headers(VALUE self, CURL* c, VALUE headers)
+static struct curl_slist* build_headers(CURL* c, VALUE headers)
 {
   struct curl_slist* list = NULL;
 
