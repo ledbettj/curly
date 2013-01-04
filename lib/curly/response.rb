@@ -1,0 +1,3 @@
+class Curly::Response
+
+end
