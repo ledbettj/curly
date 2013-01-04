@@ -131,6 +131,7 @@ static VALUE request_perform(VALUE self, CURL* c, VALUE url, VALUE opts)
   rb_thread_blocking_region(curl_easy_perform_wrapper, &n, NULL, NULL);
 
   rb_iv_set(resp, "@body", rb_str_new(n.body.value, n.body.length));
+  rb_iv_set(resp, "@head", rb_str_new(n.head.value, n.head.length));
   rb_iv_set(resp, "@curl_code", INT2NUM(n.curl_rc));
 
   if (n.curl_rc == CURLE_OK) {
