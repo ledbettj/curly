@@ -28,6 +28,8 @@ class Curly::Request
   attr_accessor :url
   attr_accessor :body, :headers, :method, :params, :timeout
 
+  attr_reader :response
+
   def initialize(url, opts = {})
     @url     = url
     @body    = opts[:body]

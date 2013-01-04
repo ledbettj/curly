@@ -1,6 +1,5 @@
 class Curly::Multi
 
-
   def initialize
     @requests = []
   end
