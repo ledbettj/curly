@@ -1,3 +1,5 @@
+require 'uri'
+
 class Curly::Request
   class << self
 
@@ -33,5 +35,14 @@ class Curly::Request
     @method  = opts[:method]
     @params  = opts[:params]
     @timeout = opts[:timeout]
+  end
+
+  def effective_url
+    return @url unless @params
+
+    uri = URI.parse(@url)
+    sep = uri.query ? "&" : "?"
+
+    "#{@url}#{sep}#{Curly::Parameterize.query_string(@params)}"
   end
 end

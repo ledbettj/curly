@@ -70,6 +70,15 @@ describe "Curly::Request" do
     JSON.parse(resp.body).should eq(params)
   end
 
+  it "handles combination of params in URL and passed in" do
+
+    resp = Curly::Request.get("#{TEST_URL}/params-test?x=a&test=hello+world",
+      :params => { 'y' => 'b'}
+    )
+
+    JSON.parse(resp.body).should eq(params)
+  end
+
   it "handles setting headers" do
     resp = Curly::Request.get("#{TEST_URL}/headers-test",
       :headers => {
