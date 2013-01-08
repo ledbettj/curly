@@ -59,7 +59,7 @@ void request_prepare(VALUE self, native_curly* n)
   VALUE body    = rb_iv_get(self, "@body");
   VALUE timeout = rb_iv_get(self, "@timeout");
   VALUE headers = rb_iv_get(self, "@headers");
-  VALUE follow  = (rb_iv_get(self, "@follow_location") == Qtrue);
+  int follow    = (rb_iv_get(self, "@follow_location") == Qtrue);
 
   method = (method == Qnil ? syms.get : rb_funcall(method, rb_intern("to_sym"), 0));
 
