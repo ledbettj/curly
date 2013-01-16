@@ -13,9 +13,13 @@ int exstr_alloc(exstr* s, size_t capacity)
 {
   s->capacity = capacity;
   s->length   = 0;
-  s->value    = malloc(capacity);
 
-  return s->value ? 0 : -1;
+  if ((s->value = malloc(capacity))) {
+    s->value[0] = '\0';
+    return 0;
+  }
+
+  return -1;
 }
 
 /*
@@ -32,22 +36,23 @@ void exstr_free(exstr* s)
 /*
  * append `length` characters from `buffer` onto the expandable string
  * `s`.  Note that you should not include the null terminator (if any)
- * in the length count, or you will end up with \0 bytes inside your string.
- * if you need the string stored in `s->value` to be null terminated,
- * invoke exstr_append(s, "", 1) at the end of your string building operation.
- * Be aware that in this case unlike strlen(), s->length will include the null
- * terminator.
+ * in the length count.
+ *
+ * exstr_append ensures that `s->value` is null terminated, but does not
+ * care if there are additional null characters inside the buffer.
  *
  * returns 0 if the operation was successful, -1 otherwise.
  */
 int exstr_append(exstr* s, char* buffer, size_t length)
 {
-  if (exstr_grow(s, s->length + length) < 0) {
+  /* +1 is to ensure we have room to hold a null terminator. */
+  if (exstr_grow(s, s->length + length + 1) < 0) {
     return -1;
   }
 
   memcpy(&s->value[s->length], buffer, length);
   s->length += length;
+  s->value[s->length] = '\0';
 
   return 0;
 }
