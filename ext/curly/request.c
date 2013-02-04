@@ -6,15 +6,6 @@
 
 static VALUE request_run(VALUE self);
 
-/* internal helpers */
-static VALUE request_alloc(VALUE self);
-static VALUE request_perform(VALUE self, CURL* c, VALUE url);
-static VALUE build_query_string(VALUE params);
-
-/* curl callbacks */
-static size_t header_callback(void* buffer, size_t size, size_t count, void* self);
-static size_t data_callback  (void* buffer, size_t size, size_t count, void* self);
-
 static struct {
   VALUE method;
   VALUE get, post, put, delete;
@@ -114,14 +105,4 @@ static VALUE request_run(VALUE self)
 
   rb_iv_set(self, "@response", resp);
   return resp;
-}
-
-/* given a set of key/value pairs, build a url encoded string of the form
- * key=value&key2=value2 using ActiveSupport's to_query if available or
- * our own compatible implementation */
-static VALUE build_query_string(VALUE params)
-{
-  VALUE paramize = rb_const_get(rb_const_get(rb_cObject, rb_intern("Curly")),
-                                rb_intern("Parameterize"));
-  return rb_funcall(paramize, rb_intern("query_string"), 1, params);
 }
