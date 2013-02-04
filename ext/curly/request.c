@@ -59,6 +59,7 @@ void request_prepare(VALUE self, native_curly* n)
   VALUE body    = rb_iv_get(self, "@body");
   VALUE timeout = rb_iv_get(self, "@timeout");
   VALUE headers = rb_iv_get(self, "@headers");
+  int verify    = (rb_iv_get(self, "@ssl_verify_peer") == Qtrue);
   int follow    = (rb_iv_get(self, "@follow_location") == Qtrue);
 
   method = (method == Qnil ? syms.get : rb_funcall(method, rb_intern("to_sym"), 0));
@@ -82,7 +83,8 @@ void request_prepare(VALUE self, native_curly* n)
   native_curly_prepare(n, RSTRING_PTR(url),
                        timeout != Qnil ? NUM2LONG(timeout) : -1,
                        body    != Qnil ? RSTRING_PTR(StringValue(body)) : NULL,
-                       follow
+                       follow,
+                       verify
                        );
 }
 

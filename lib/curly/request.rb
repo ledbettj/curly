@@ -26,7 +26,8 @@ class Curly::Request
   end
 
   attr_accessor :url
-  attr_accessor :body, :follow_location, :headers, :method, :params, :timeout
+  attr_accessor :body, :follow_location, :headers, :method, :params
+  attr_accessor :ssl_verify_peer, :timeout
 
   attr_reader :response
 
@@ -38,7 +39,7 @@ class Curly::Request
     @method           = opts[:method]
     @params           = opts[:params]
     @timeout          = opts[:timeout]
-
+    @ssl_verify_peer  = opts[:ssl_verify_peer] == false ? false : true
   end
 
   def effective_url
