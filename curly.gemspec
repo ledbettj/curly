@@ -5,7 +5,8 @@ require File.expand_path('../lib/curly/version', __FILE__)
 Gem::Specification.new do |gem|
   gem.authors       = ["John Ledbetter"]
   gem.email         = ["john@throttle.io"]
-  gem.description   = %q{A thin libcurl wrapper for ruby.}
+  gem.description   = %q{A thin libcurl wrapper for ruby with a similar
+                         interface to Typhoeus.}
   gem.summary       = %q{A thin libcurl wrapper for ruby.}
   gem.homepage      = "http://github.com/ledbettj/curly"
 
@@ -13,7 +14,7 @@ Gem::Specification.new do |gem|
   gem.extensions    = ['ext/curly/extconf.rb']
   gem.executables   = gem.files.grep(%r{^bin/}).map{ |f| File.basename(f) }
   gem.test_files    = gem.files.grep(%r{^(test|spec|features)/})
-  gem.name          = "curly"
+  gem.name          = "curly-lib"
   gem.require_paths = ["lib"]
   gem.version       = Curly::VERSION
 
